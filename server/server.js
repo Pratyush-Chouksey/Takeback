@@ -15,8 +15,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://takeback.vercel.app',        // add your vercel URL here
-    'https://takeback-git-main.vercel.app' // vercel preview URL
+    'https://takeback-server.onrender.com',
+    'https://takeback.vercel.app'
   ],
   credentials: true
 }));
