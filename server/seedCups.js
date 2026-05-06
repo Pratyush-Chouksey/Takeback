@@ -8,7 +8,7 @@ const Cup = require('./models/Cup');
 
 const QR_DIR = path.join(__dirname, 'qr-codes');
 const TOTAL_CUPS = 20;
-const BASE_URL = 'https://takeback.vercel.app/borrow';
+const BASE_URL = 'https://takeback-nine.vercel.app/borrow';
 
 async function seed() {
   try {

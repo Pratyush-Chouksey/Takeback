@@ -16,7 +16,7 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://takeback-server.onrender.com',
-    'https://takeback.vercel.app'
+    'https://takeback-nine.vercel.app'
   ],
   credentials: true
 }));
