@@ -1,0 +1,243 @@
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { getCup, sendOtp, verifyOtp, borrowCup, returnCup } from '../api';
+import { useAuth } from '../context/AuthContext';
+
+const BRAND = '#2D6A4F';
+const BRAND_LIGHT = '#E8F5E9';
+const BRAND_DARK = '#1B4332';
+const BG = '#F8FAF9';
+const RET = '#F59E0B';
+const RET_LIGHT = '#FEF3C7';
+
+export default function BorrowPage() {
+  const { login, updateWallet } = useAuth();
+  const [searchParams] = useSearchParams();
+  const cupId = searchParams.get('cupId');
+
+  const [cup, setCup] = useState(null);
+  const [cupLoading, setCupLoading] = useState(true);
+  const [cupError, setCupError] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState('');
+  const [borrowResult, setBorrowResult] = useState(null);
+  const [returnResult, setReturnResult] = useState(null);
+  const [retName, setRetName] = useState('');
+
+  useEffect(() => {
+    if (!cupId) { setCupLoading(false); setCupError('No cup ID found. Please scan a valid QR code.'); return; }
+    getCup(cupId)
+      .then((r) => setCup(r.data.cup))
+      .catch(() => setCupError('Cup not found. Please check the QR code.'))
+      .finally(() => setCupLoading(false));
+  }, [cupId]);
+
+  const doSendOtp = async () => {
+    if (!phone.trim()) { setError('Please enter your phone number'); return; }
+    setError(''); setSending(true);
+    try { await sendOtp(phone.trim()); setOtpSent(true); }
+    catch (e) { setError(e.response?.data?.message || 'Failed to send OTP'); }
+    finally { setSending(false); }
+  };
+
+  const doBorrow = async () => {
+    if (!otp.trim()) { setError('Please enter the OTP'); return; }
+    setError(''); setVerifying(true);
+    try {
+      const a = await verifyOtp(phone.trim(), name.trim(), otp.trim());
+      login(a.data.user, a.data.token);
+      const b = await borrowCup(cupId);
+      updateWallet(b.data.wallet);
+      setBorrowResult({ wallet: b.data.wallet });
+    } catch (e) { setError(e.response?.data?.message || 'Something went wrong'); }
+    finally { setVerifying(false); }
+  };
+
+  const doReturn = async () => {
+    if (!otp.trim()) { setError('Please enter the OTP'); return; }
+    setError(''); setVerifying(true);
+    try {
+      const a = await verifyOtp(phone.trim(), retName.trim(), otp.trim());
+      login(a.data.user, a.data.token);
+      const r = await returnCup(cupId);
+      updateWallet(r.data.wallet);
+      setReturnResult({ wallet: r.data.wallet, isNewUser: a.data.isNewUser });
+    } catch (e) { setError(e.response?.data?.message || 'Something went wrong'); }
+    finally { setVerifying(false); }
+  };
+
+  const isRet = cup?.status === 'borrowed';
+  const ac = isRet ? RET : BRAND;
+  const acL = isRet ? RET_LIGHT : BRAND_LIGHT;
+
+  /* ── screens ── */
+  if (cupLoading) return <Page><Card><Logo /><Spinner /><p style={st.dim}>Finding your cup…</p></Card></Page>;
+
+  if (cupError) return <Page><Card><Logo /><Icon bg="#fdecea" c="#c0392b">✕</Icon><H>Oops!</H><P>{cupError}</P></Card></Page>;
+
+  if (cup?.status === 'pending') return (
+    <Page><Card><Logo /><Pill id={cup.cupId} /><Icon bg="#FFF3E0" c="#E65100">⏳</Icon>
+      <H>Return in Progress</H><P>This cup is already being processed for return. Please hand it to a Takeback representative.</P>
+    </Card></Page>
+  );
+
+  if (borrowResult) return (
+    <Page><Card><Logo /><Icon bg={BRAND_LIGHT} c={BRAND}>✓</Icon>
+      <H style={{ color: BRAND }}>You've borrowed {cupId}!</H>
+      <Receipt rows={[['Deposit deducted', '−₹150', '#DC2626'], ['Remaining balance', `₹${borrowResult.wallet}`, BRAND]]} />
+      <Tip bg="#FFFBEB" border="#FEF3C7" icon="💡" color="#78350F">Return any Takeback cup at a partner café to earn <strong>₹50 cashback</strong>!</Tip>
+    </Card></Page>
+  );
+
+  if (returnResult) return (
+    <Page><Card><Logo /><Icon bg={RET_LIGHT} c={RET}>✓</Icon>
+      {returnResult.isNewUser ? (
+        <>
+          <H style={{ color: RET }}>Welcome to Takeback! 🎉</H>
+          <P>You've been registered and earned ₹50 for returning this cup</P>
+          <Receipt rows={[['Starting balance', '₹200', '#555'], ['Return cashback', '+₹50', '#16A34A'], ['Your wallet', `₹${returnResult.wallet}`, BRAND]]} />
+        </>
+      ) : (
+        <>
+          <H style={{ color: RET }}>Cup returned successfully! 🌱</H>
+          <Receipt rows={[['Cashback earned', '+₹50', '#16A34A'], ['New balance', `₹${returnResult.wallet}`, BRAND]]} />
+        </>
+      )}
+      <Tip bg="#ECFDF5" border="#D1FAE5" icon="🌱" color={BRAND_DARK}>Thank you for helping the planet! Every reuse counts towards a greener future.</Tip>
+    </Card></Page>
+  );
+
+  /* ── RETURN FORM ── */
+  if (isRet) return (
+    <Page><Card>
+      <Logo />
+      <Pill id={cup.cupId} bg={RET_LIGHT} c="#92400E" />
+      <div style={{ fontSize: '2rem', marginBottom: 4 }}>🔄</div>
+      <H>Return this cup</H>
+      <P>Earn <strong style={{ color: RET }}>₹50 cashback</strong> added to your Takeback wallet</P>
+      {error && <Err>{error}</Err>}
+      <Field label="Your Name"><input style={st.input} type="text" placeholder="Enter your name" value={retName} onChange={e => setRetName(e.target.value)} disabled={otpSent} /></Field>
+      <Field label="Phone Number"><input style={st.input} type="tel" placeholder="10-digit mobile number" value={phone} onChange={e => setPhone(e.target.value)} disabled={otpSent} /></Field>
+      {!otpSent
+        ? <Btn bg={RET} loading={sending} onClick={doSendOtp}>{sending ? 'Sending…' : 'Send OTP'}</Btn>
+        : <>
+            <OtpNote bg={RET_LIGHT} c="#92400E" phone={phone} />
+            <Field label="Enter OTP"><input style={{ ...st.input, textAlign: 'center', letterSpacing: 10, fontSize: '1.4rem', fontWeight: 700 }} type="text" placeholder="• • • •" maxLength={6} value={otp} onChange={e => setOtp(e.target.value)} /></Field>
+            <Btn bg={RET} loading={verifying} onClick={doReturn}>{verifying ? 'Processing…' : 'Confirm Return'}</Btn>
+          </>}
+    </Card></Page>
+  );
+
+  /* ── BORROW FORM ── */
+  return (
+    <Page><Card>
+      <Logo />
+      <Pill id={cup.cupId} />
+      <H>Borrow this cup</H>
+      <P>A <strong>₹150 refundable deposit</strong> will be deducted. You'll get ₹50 back on return.</P>
+      <div style={st.walletInfo}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ fontSize: '1.2rem' }}>💳</span><span style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>Starting balance</span></div>
+        <span style={{ fontWeight: 700, color: BRAND, fontSize: '1.1rem' }}>₹200</span>
+      </div>
+      {error && <Err>{error}</Err>}
+      <Field label="Name"><input style={st.input} type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} disabled={otpSent} /></Field>
+      <Field label="Phone Number"><input style={st.input} type="tel" placeholder="10-digit mobile number" value={phone} onChange={e => setPhone(e.target.value)} disabled={otpSent} /></Field>
+      {!otpSent
+        ? <Btn loading={sending} onClick={doSendOtp}>{sending ? 'Sending…' : 'Send OTP'}</Btn>
+        : <>
+            <OtpNote phone={phone} />
+            <Field label="Enter OTP"><input style={{ ...st.input, textAlign: 'center', letterSpacing: 10, fontSize: '1.4rem', fontWeight: 700 }} type="text" placeholder="• • • •" maxLength={6} value={otp} onChange={e => setOtp(e.target.value)} /></Field>
+            <Btn loading={verifying} onClick={doBorrow}>{verifying ? 'Processing…' : 'Verify & Borrow'}</Btn>
+          </>}
+    </Card></Page>
+  );
+}
+
+/* ── Tiny components ── */
+const Page = ({ children }) => <div style={st.page}>{children}</div>;
+const Card = ({ children }) => <div style={st.card}>{children}</div>;
+const H = ({ children, style }) => <h2 style={{ ...st.heading, ...style }}>{children}</h2>;
+const P = ({ children }) => <p style={st.body}>{children}</p>;
+const Err = ({ children }) => <div style={st.err}>{children}</div>;
+const Spinner = () => <div style={st.spinner} />;
+
+function Logo() {
+  return (
+    <div style={{ textAlign: 'center', marginBottom: 20 }}>
+      <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: BRAND, letterSpacing: -0.5 }}>Takeback <span style={{ fontSize: 22 }}>🍃</span></h1>
+      <p style={{ margin: '4px 0 0', fontSize: 14, color: '#999' }}>Borrow smart. Return kind.</p>
+    </div>
+  );
+}
+
+function Pill({ id, bg = '#E8F5E9', c = '#2D6A4F' }) {
+  return <div style={{ background: bg, color: c, padding: '6px 20px', borderRadius: 20, fontWeight: 700, fontSize: 13, letterSpacing: 1.5, marginBottom: 12, fontFamily: 'monospace' }}>{id}</div>;
+}
+
+function Icon({ bg, c, children }) {
+  return <div style={{ width: 68, height: 68, borderRadius: '50%', background: bg, color: c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, marginBottom: 16 }}>{children}</div>;
+}
+
+function Field({ label, children }) {
+  return <div style={{ width: '100%', marginBottom: 16 }}><label style={st.label}>{label}</label>{children}</div>;
+}
+
+function Btn({ children, bg = BRAND, loading, onClick }) {
+  return <button style={{ ...st.btn, background: bg, opacity: loading ? 0.7 : 1 }} onClick={onClick} disabled={loading}>{children}</button>;
+}
+
+function OtpNote({ phone, bg = BRAND_LIGHT, c = BRAND_DARK }) {
+  return <div style={{ ...st.otpNote, background: bg, color: c }}>✓ OTP sent to {phone} <span style={{ fontWeight: 400, opacity: 0.6, fontSize: 12 }}>(use 1234 for demo)</span></div>;
+}
+
+function Receipt({ rows }) {
+  return (
+    <div style={st.receipt}>
+      {rows.map((r, i) => (
+        <div key={i}>
+          {i > 0 && <div style={{ height: 1, background: '#E5E5E5', margin: '10px 0' }} />}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, padding: '3px 0', color: '#444' }}>
+            <span>{r[0]}</span><span style={{ fontWeight: 700, color: r[2] }}>{r[1]}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Tip({ bg, border, icon, color, children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: bg, borderRadius: 12, padding: '14px 16px', width: '100%', boxSizing: 'border-box', border: `1px solid ${border}` }}>
+      <span style={{ fontSize: '1.3rem' }}>{icon}</span>
+      <p style={{ margin: 0, fontSize: 13, color, lineHeight: 1.6 }}>{children}</p>
+    </div>
+  );
+}
+
+/* ── Styles ── */
+const st = {
+  page: { minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px', background: BG, fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
+  card: { width: '100%', maxWidth: 420, background: '#fff', borderRadius: 20, padding: '36px 32px', boxShadow: '0 8px 40px rgba(0,0,0,0.06),0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  heading: { margin: '0 0 6px', fontSize: 20, fontWeight: 700, color: '#1a1a1a', textAlign: 'center' },
+  body: { margin: '0 0 24px', fontSize: 14, color: '#777', textAlign: 'center', lineHeight: 1.6 },
+  label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#555', marginBottom: 6 },
+  input: { width: '100%', height: 48, padding: '0 16px', border: '1.5px solid #ddd', borderRadius: 10, fontSize: 15, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s', background: '#fff' },
+  btn: { width: '100%', height: 48, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer', marginTop: 4, transition: 'opacity 0.2s' },
+  err: { width: '100%', padding: '10px 16px', background: '#FEF2F2', color: '#DC2626', borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16, textAlign: 'center', boxSizing: 'border-box', border: '1px solid #FECACA' },
+  otpNote: { width: '100%', padding: '10px 16px', background: BRAND_LIGHT, color: BRAND_DARK, borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16, textAlign: 'center', boxSizing: 'border-box' },
+  walletInfo: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F0FDF4', border: '1px solid #D1FAE5', borderRadius: 12, padding: '12px 16px', marginBottom: 20, boxSizing: 'border-box' },
+  receipt: { width: '100%', background: '#FAFAFA', borderRadius: 12, padding: '18px 20px', margin: '18px 0', boxSizing: 'border-box', border: '1px solid #F0F0F0' },
+  dim: { color: '#aaa', fontSize: 14, fontWeight: 500 },
+  spinner: { width: 36, height: 36, border: `3px solid ${BRAND_LIGHT}`, borderTopColor: BRAND, borderRadius: '50%', animation: 'tb-spin 0.8s linear infinite', marginBottom: 12 },
+};
+
+if (typeof document !== 'undefined' && !document.getElementById('tb-bp')) {
+  const el = document.createElement('style'); el.id = 'tb-bp';
+  el.textContent = `@keyframes tb-spin{to{transform:rotate(360deg)}}input:focus{border-color:${BRAND}!important}button:hover:not(:disabled){opacity:.85!important}button:active:not(:disabled){transform:scale(.985)}`;
+  document.head.appendChild(el);
+}
