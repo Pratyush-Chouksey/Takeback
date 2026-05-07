@@ -1,73 +1,37 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { sendOtp, verifyOtp, returnCup, setAuthToken } from '../api';
+import { GoogleLogin } from '@react-oauth/google';
+import { googleAuth, returnCup } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const BRAND = '#2D6A4F';
 const BRAND_LIGHT = '#D8F3DC';
 const BRAND_DARK = '#1B4332';
 
-export default function ReturnPage({ user, setUser }) {
+export default function ReturnPage() {
+  const { user, login } = useAuth();
   const [searchParams] = useSearchParams();
   const urlCupId = searchParams.get('cupId') || '';
 
-  // Auth state
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [sending, setSending] = useState(false);
-  const [verified, setVerified] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-
-  // Cup state
   const [cupId, setCupId] = useState(urlCupId);
-  const [returning, setReturning] = useState(false);
-
-  // Result
+  const [processing, setProcessing] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [returnResult, setReturnResult] = useState(null);
-
-  // Errors
+  const [isNewUser, setIsNewUser] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSendOtp = async () => {
-    if (!phone.trim()) {
-      setError('Please enter your phone number');
-      return;
-    }
-    setError('');
-    setSending(true);
+  // Google login → verified
+  const handleGoogleLogin = async (credentialResponse) => {
+    setError(''); setProcessing(true);
     try {
-      await sendOtp(phone.trim());
-      setOtpSent(true);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP');
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const [isNewUser, setIsNewUser] = useState(false);
-
-  const handleVerifyOtp = async () => {
-    if (!otp.trim()) {
-      setError('Please enter the OTP');
-      return;
-    }
-    setError('');
-    setVerifying(true);
-    try {
-      const res = await verifyOtp(phone.trim(), name.trim(), otp.trim());
-      const { token, user: authUser } = res.data;
-
-      localStorage.setItem('takeback_token', token);
-      setAuthToken(token);
-      setUser(authUser);
+      const res = await googleAuth(credentialResponse.credential);
+      login(res.data.user, res.data.token);
       setVerified(true);
       setIsNewUser(res.data.isNewUser);
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid OTP');
+      setError(err.response?.data?.message || 'Google login failed');
     } finally {
-      setVerifying(false);
+      setProcessing(false);
     }
   };
 
@@ -77,63 +41,41 @@ export default function ReturnPage({ user, setUser }) {
       return;
     }
     setError('');
-    setReturning(true);
+    setProcessing(true);
     try {
-      const res = await returnCup(cupId.trim().toUpperCase());
-      setReturnResult({ wallet: res.data.wallet });
+      await returnCup(cupId.trim().toUpperCase());
+      setReturnResult({ wallet: user?.wallet });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to return cup');
     } finally {
-      setReturning(false);
+      setProcessing(false);
     }
   };
 
-  // ── Render: Success ──
+  // ── Success ──
   if (returnResult) {
     return (
       <div style={styles.page}>
         <div style={styles.card}>
-          <div style={styles.iconCircle}>✓</div>
+          <div style={styles.iconCircle}>⏳</div>
 
           {isNewUser ? (
             <>
-              <h2 style={{ ...styles.heading, color: BRAND }}>Welcome to Takeback! 🎉</h2>
+              <h2 style={{ ...styles.heading, color: '#F59E0B' }}>Welcome to Takeback! 🎉</h2>
               <p style={{ ...styles.subtext, marginBottom: 12 }}>
-                You've been registered and earned ₹50 for returning this cup
+                You've been registered! Your return request has been submitted.
               </p>
-              <div style={styles.receiptBox}>
-                <div style={styles.receiptRow}>
-                  <span>Starting balance</span>
-                  <span style={{ color: '#555', fontWeight: 700 }}>₹200</span>
-                </div>
-                <div style={styles.divider} />
-                <div style={styles.receiptRow}>
-                  <span>Return cashback</span>
-                  <span style={{ color: '#16A34A', fontWeight: 700 }}>+₹50</span>
-                </div>
-                <div style={styles.divider} />
-                <div style={styles.receiptRow}>
-                  <span>Your wallet</span>
-                  <span style={{ color: BRAND, fontWeight: 700 }}>₹{returnResult.wallet}</span>
-                </div>
-              </div>
             </>
           ) : (
-            <>
-              <h2 style={{ ...styles.heading, color: BRAND }}>Cup returned successfully!</h2>
-              <div style={styles.receiptBox}>
-                <div style={styles.receiptRow}>
-                  <span>Cashback earned</span>
-                  <span style={{ color: BRAND, fontWeight: 700 }}>+₹50</span>
-                </div>
-                <div style={styles.divider} />
-                <div style={styles.receiptRow}>
-                  <span>New balance</span>
-                  <span style={{ color: BRAND, fontWeight: 700 }}>₹{returnResult.wallet}</span>
-                </div>
-              </div>
-            </>
+            <h2 style={{ ...styles.heading, color: '#F59E0B' }}>Return Request Submitted!</h2>
           )}
+
+          <div style={{ ...styles.thankYouBox, background: '#FFFBEB', borderColor: '#FDE68A' }}>
+            <span style={{ fontSize: '1.6rem' }}>📋</span>
+            <p style={{ ...styles.thankYouText, color: '#92400E' }}>
+              Our team will verify your cup shortly. <strong>₹50 will be credited</strong> to your wallet once verified.
+            </p>
+          </div>
 
           <div style={styles.thankYouBox}>
             <span style={{ fontSize: '1.6rem' }}>🌱</span>
@@ -146,11 +88,10 @@ export default function ReturnPage({ user, setUser }) {
     );
   }
 
-  // ── Render: Form ──
+  // ── Form ──
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        {/* Header */}
         <div style={styles.returnIcon}>♻</div>
         <h2 style={styles.heading}>Return a cup, earn ₹50!</h2>
         <p style={styles.subtext}>
@@ -159,82 +100,33 @@ export default function ReturnPage({ user, setUser }) {
 
         {error && <div style={styles.errorBox}>{error}</div>}
 
-        {/* Step 1: Phone */}
-        {!verified ? (
+        {!verified && !user ? (
           <>
             <div style={styles.stepBadge}>Step 1 — Verify your identity</div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>Your Name</label>
-              <input
-                style={styles.input}
-                type="text"
-                placeholder="Enter your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={otpSent}
-              />
-            </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>Phone Number</label>
-              <input
-                style={styles.input}
-                type="tel"
-                placeholder="10-digit mobile number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={otpSent}
-              />
-            </div>
-
-            {!otpSent ? (
-              <button
-                style={{ ...styles.btn, opacity: sending ? 0.7 : 1 }}
-                onClick={handleSendOtp}
-                disabled={sending}
-              >
-                {sending ? 'Sending…' : 'Send OTP'}
-              </button>
-            ) : (
-              <>
-                <div style={styles.otpSentNote}>
-                  ✓ OTP sent to {phone}{' '}
-                  <span style={styles.otpHint}>(use 1234 for demo)</span>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+              <p style={{ margin: 0, fontSize: 14, color: '#888', fontWeight: 500 }}>Sign in to continue</p>
+              {processing ? (
+                <div style={{ padding: 16 }}>
+                  <div style={{ width: 32, height: 32, border: `3px solid ${BRAND_LIGHT}`, borderTopColor: BRAND, borderRadius: '50%', animation: 'tb-spin 0.8s linear infinite' }} />
                 </div>
-
-                <div style={styles.field}>
-                  <label style={styles.label}>Enter OTP</label>
-                  <input
-                    style={{
-                      ...styles.input,
-                      textAlign: 'center',
-                      letterSpacing: '8px',
-                      fontSize: '1.3rem',
-                    }}
-                    type="text"
-                    placeholder="••••"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                  />
-                </div>
-
-                <button
-                  style={{ ...styles.btn, opacity: verifying ? 0.7 : 1 }}
-                  onClick={handleVerifyOtp}
-                  disabled={verifying}
-                >
-                  {verifying ? 'Verifying…' : 'Verify OTP'}
-                </button>
-              </>
-            )}
+              ) : (
+                <GoogleLogin
+                  onSuccess={handleGoogleLogin}
+                  onError={() => setError('Google login failed. Please try again.')}
+                  theme="outline"
+                  size="large"
+                  text="continue_with"
+                  shape="rectangular"
+                />
+              )}
+              <p style={{ margin: 0, fontSize: 12, color: '#bbb' }}>We only access your name and email</p>
+            </div>
           </>
         ) : (
-          /* Step 2: Cup ID & Return */
           <>
             <div style={styles.verifiedBanner}>
-              <span>✓</span> Logged in as <strong>{user?.name || phone}</strong>
+              {(user?.picture) && <img src={user.picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%' }} />}
+              <span>✓</span> Signed in as <strong>{user?.name}</strong>
               {user?.wallet != null && (
                 <span style={styles.walletInline}>₹{user.wallet}</span>
               )}
@@ -257,11 +149,11 @@ export default function ReturnPage({ user, setUser }) {
             </div>
 
             <button
-              style={{ ...styles.btn, opacity: returning ? 0.7 : 1 }}
+              style={{ ...styles.btn, opacity: processing ? 0.7 : 1 }}
               onClick={handleReturn}
-              disabled={returning}
+              disabled={processing}
             >
-              {returning ? 'Processing…' : 'Confirm Return'}
+              {processing ? 'Processing…' : 'Confirm Return'}
             </button>
           </>
         )}
@@ -278,15 +170,16 @@ const styles = {
     alignItems: 'flex-start',
     justifyContent: 'center',
     padding: '32px 16px',
-    background: '#f5f7f5',
+    background: '#F8FAF9',
+    fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
   },
   card: {
     width: '100%',
     maxWidth: '420px',
     background: '#fff',
-    borderRadius: '16px',
+    borderRadius: '20px',
     padding: '32px 28px',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+    boxShadow: '0 8px 40px rgba(0,0,0,0.06),0 1px 3px rgba(0,0,0,0.04)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -300,6 +193,7 @@ const styles = {
     fontSize: '1.4rem',
     color: '#1a1a1a',
     textAlign: 'center',
+    fontWeight: 700,
   },
   subtext: {
     margin: '0 0 24px',
@@ -342,6 +236,8 @@ const styles = {
     outline: 'none',
     transition: 'border-color 0.2s',
     boxSizing: 'border-box',
+    background: '#fff',
+    color: '#1a1a1a',
   },
   btn: {
     width: '100%',
@@ -359,30 +255,14 @@ const styles = {
   errorBox: {
     width: '100%',
     padding: '10px 14px',
-    background: '#fdecea',
-    color: '#c0392b',
-    borderRadius: '8px',
+    background: '#FEF2F2',
+    color: '#DC2626',
+    borderRadius: '10px',
     fontSize: '0.85rem',
     marginBottom: '16px',
     textAlign: 'center',
     boxSizing: 'border-box',
-  },
-  otpSentNote: {
-    width: '100%',
-    padding: '10px 14px',
-    background: BRAND_LIGHT,
-    color: BRAND_DARK,
-    borderRadius: '8px',
-    fontSize: '0.85rem',
-    marginBottom: '16px',
-    textAlign: 'center',
-    fontWeight: 500,
-    boxSizing: 'border-box',
-  },
-  otpHint: {
-    fontWeight: 400,
-    opacity: 0.7,
-    fontSize: '0.8rem',
+    border: '1px solid #FECACA',
   },
   verifiedBanner: {
     width: '100%',
@@ -392,7 +272,7 @@ const styles = {
     padding: '10px 14px',
     background: BRAND_LIGHT,
     color: BRAND_DARK,
-    borderRadius: '8px',
+    borderRadius: '10px',
     fontSize: '0.85rem',
     fontWeight: 500,
     marginBottom: '20px',
@@ -414,13 +294,12 @@ const styles = {
     color: '#999',
     fontStyle: 'italic',
   },
-  // Success screen
   iconCircle: {
-    width: '64px',
-    height: '64px',
+    width: '68px',
+    height: '68px',
     borderRadius: '50%',
-    background: BRAND_LIGHT,
-    color: BRAND,
+    background: '#FEF3C7',
+    color: '#F59E0B',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,34 +307,17 @@ const styles = {
     fontWeight: 700,
     marginBottom: '16px',
   },
-  receiptBox: {
-    width: '100%',
-    background: '#fafafa',
-    borderRadius: '10px',
-    padding: '16px 20px',
-    margin: '16px 0',
-    boxSizing: 'border-box',
-  },
-  receiptRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '0.95rem',
-    padding: '4px 0',
-  },
-  divider: {
-    height: '1px',
-    background: '#e0e0e0',
-    margin: '8px 0',
-  },
   thankYouBox: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
     background: '#E8F5E9',
-    borderRadius: '10px',
+    borderRadius: '14px',
     padding: '16px',
     width: '100%',
     boxSizing: 'border-box',
+    marginBottom: '12px',
+    border: '1px solid #D1FAE5',
   },
   thankYouText: {
     margin: 0,
@@ -464,3 +326,9 @@ const styles = {
     lineHeight: 1.5,
   },
 };
+
+if (typeof document !== 'undefined' && !document.getElementById('tb-rp')) {
+  const el = document.createElement('style'); el.id = 'tb-rp';
+  el.textContent = `@keyframes tb-spin{to{transform:rotate(360deg)}}input:focus{border-color:${BRAND}!important}button:hover:not(:disabled){opacity:.85!important}`;
+  document.head.appendChild(el);
+}

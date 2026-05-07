@@ -14,11 +14,8 @@ export function setAuthToken(token) {
 }
 
 // ── Auth ──────────────────────────────────────────
-export const sendOtp = (phone) =>
-  api.post('/api/auth/send-otp', { phone });
-
-export const verifyOtp = (phone, name, otp) =>
-  api.post('/api/auth/verify-otp', { phone, name, otp });
+export const googleAuth = (credential) =>
+  api.post('/api/auth/google', { credential });
 
 export const getMe = () =>
   api.post('/api/auth/me');
@@ -36,14 +33,17 @@ export const returnCup = (cupId) =>
 // ── Admin ─────────────────────────────────────────
 const adminHeaders = { 'x-admin-key': 'takeback-admin-2024' };
 
-export const getAdminCups = () =>
-  api.get('/api/admin/cups', { headers: adminHeaders });
+export const getAdminCups = (filter) =>
+  api.get('/api/admin/cups', { headers: adminHeaders, params: filter ? { status: filter } : undefined });
 
 export const getCupStats = () =>
   api.get('/api/admin/cups/stats', { headers: adminHeaders });
 
 export const verifyCupReturn = (cupId) =>
   api.patch(`/api/admin/cups/${cupId}/verify`, {}, { headers: adminHeaders });
+
+export const markCupReturned = (cupId) =>
+  api.patch(`/api/admin/cups/${cupId}/mark-returned`, {}, { headers: adminHeaders });
 
 export const getAdminUsers = () =>
   api.get('/api/admin/users', { headers: adminHeaders });

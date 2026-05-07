@@ -1,49 +1,48 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 
 const router = express.Router();
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// POST /api/auth/send-otp
-// Demo: always succeeds, OTP is hardcoded "1234"
-router.post('/send-otp', async (req, res) => {
+// POST /api/auth/google
+// Verify Google credential, create or find user, return JWT
+router.post('/google', async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { credential } = req.body;
 
-    if (!phone) {
-      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    if (!credential) {
+      return res.status(400).json({ success: false, message: 'Google credential is required' });
     }
 
-    // In production, send a real OTP via SMS here
-    return res.json({ success: true, message: 'OTP sent' });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
-  }
-});
+    // Verify the Google token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
 
-// POST /api/auth/verify-otp
-// Verify demo OTP, create or update user, return JWT + user data
-router.post('/verify-otp', async (req, res) => {
-  try {
-    const { phone, name, otp } = req.body;
+    const { sub: googleId, name, email, picture } = payload;
 
-    if (otp !== '1234') {
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
-    }
-
-    let user = await User.findOne({ phone });
+    // Find or create user
+    let user = await User.findOne({ email });
     let isNewUser = false;
 
     if (!user) {
-      user = await User.create({ name, phone, wallet: 200 });
+      user = await User.create({ name, email, googleId, picture, wallet: 200 });
       isNewUser = true;
-    } else if (name) {
+    } else {
+      // Update profile info from Google in case it changed
       user.name = name;
+      user.googleId = googleId;
+      user.picture = picture;
       await user.save();
     }
 
+    // Sign our own JWT
     const token = jwt.sign(
-      { userId: user._id, phone: user.phone },
+      { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -52,10 +51,16 @@ router.post('/verify-otp', async (req, res) => {
       success: true,
       token,
       isNewUser,
-      user: { name: user.name, phone: user.phone, wallet: user.wallet },
+      user: {
+        name: user.name,
+        email: user.email,
+        picture: user.picture,
+        wallet: user.wallet,
+      },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Google auth error:', err.message);
+    return res.status(401).json({ success: false, message: 'Invalid Google credential' });
   }
 });
 
@@ -80,7 +85,12 @@ router.post('/me', async (req, res) => {
 
     return res.json({
       success: true,
-      user: { name: user.name, phone: user.phone, wallet: user.wallet },
+      user: {
+        name: user.name,
+        email: user.email,
+        picture: user.picture,
+        wallet: user.wallet,
+      },
     });
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {

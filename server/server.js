@@ -15,7 +15,6 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://takeback-server.onrender.com',
     'https://takeback-nine.vercel.app'
   ],
   credentials: true

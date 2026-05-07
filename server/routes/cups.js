@@ -75,7 +75,7 @@ router.post('/borrow', async (req, res) => {
 });
 
 // POST /api/cups/return
-// Return a cup — adds ₹50 to wallet
+// Submit a return request — Rs. 50 credited after admin verification
 router.post('/return', async (req, res) => {
   try {
     const { cupId } = req.body;
@@ -88,30 +88,17 @@ router.post('/return', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Cup is not currently borrowed' });
     }
 
-    const user = await User.findById(req.user.userId);
-
-    // Credit wallet
-    user.wallet += 50;
-    await user.save();
-
-    // Update cup status
+    // Update cup status — no wallet credit yet
     cup.status = 'pending';
-    cup.returnedBy = user._id;
+    cup.returnRequestedBy = req.user.userId;
+    cup.returnRequestedAt = new Date();
+    cup.returnedBy = req.user.userId;
     cup.returnedAt = new Date();
     await cup.save();
 
-    // Log transaction
-    await Transaction.create({
-      userId: user._id,
-      cupId: cup.cupId,
-      type: 'return',
-      amount: 50,
-    });
-
     return res.json({
       success: true,
-      message: 'Cup return initiated',
-      wallet: user.wallet,
+      message: 'Return request submitted. ₹50 will be credited once our team verifies the cup.',
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

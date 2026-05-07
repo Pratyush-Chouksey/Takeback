@@ -25,15 +25,15 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Auto-hide toast after 3s
+  // Auto-dismiss toast
   useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(''), 3000);
-      return () => clearTimeout(t);
-    }
+    if (!toast) return;
+    const t = setTimeout(() => setToast(''), 3000);
+    return () => clearTimeout(t);
   }, [toast]);
 
   const login = (userData, authToken) => {
+    // userData: { name, email, picture, wallet }
     setUser(userData);
     setToken(authToken);
     setAuthToken(authToken);

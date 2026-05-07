@@ -5,6 +5,8 @@ import ReturnPage from './pages/ReturnPage';
 import AdminDashboard from './pages/AdminDashboard';
 import { useAuth } from './context/AuthContext';
 
+const BRAND = '#2D6A4F';
+
 export default function App() {
   const { toast } = useAuth();
 
@@ -31,20 +33,19 @@ const toastStyle = {
   bottom: 24,
   left: '50%',
   transform: 'translateX(-50%)',
-  background: '#1B4332',
+  background: '#1a1a1a',
   color: '#fff',
   padding: '10px 24px',
   borderRadius: 10,
   fontSize: 14,
   fontWeight: 500,
   zIndex: 9999,
-  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-  fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
+  boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
   animation: 'tb-toast-in 0.3s ease',
 };
 
 if (typeof document !== 'undefined' && !document.getElementById('tb-toast')) {
   const el = document.createElement('style'); el.id = 'tb-toast';
-  el.textContent = `@keyframes tb-toast-in{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`;
+  el.textContent = `@keyframes tb-toast-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`;
   document.head.appendChild(el);
 }

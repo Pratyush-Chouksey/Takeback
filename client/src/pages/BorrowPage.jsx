@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getCup, sendOtp, verifyOtp, borrowCup, returnCup } from '../api';
+import { GoogleLogin } from '@react-oauth/google';
+import { getCup, googleAuth, borrowCup, returnCup } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 const BRAND = '#2D6A4F';
@@ -11,23 +12,17 @@ const RET = '#F59E0B';
 const RET_LIGHT = '#FEF3C7';
 
 export default function BorrowPage() {
-  const { login, updateWallet } = useAuth();
+  const { user, login, updateWallet } = useAuth();
   const [searchParams] = useSearchParams();
   const cupId = searchParams.get('cupId');
 
   const [cup, setCup] = useState(null);
   const [cupLoading, setCupLoading] = useState(true);
   const [cupError, setCupError] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [sending, setSending] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [borrowResult, setBorrowResult] = useState(null);
   const [returnResult, setReturnResult] = useState(null);
-  const [retName, setRetName] = useState('');
 
   useEffect(() => {
     if (!cupId) { setCupLoading(false); setCupError('No cup ID found. Please scan a valid QR code.'); return; }
@@ -37,57 +32,66 @@ export default function BorrowPage() {
       .finally(() => setCupLoading(false));
   }, [cupId]);
 
-  const doSendOtp = async () => {
-    if (!phone.trim()) { setError('Please enter your phone number'); return; }
-    setError(''); setSending(true);
-    try { await sendOtp(phone.trim()); setOtpSent(true); }
-    catch (e) { setError(e.response?.data?.message || 'Failed to send OTP'); }
-    finally { setSending(false); }
-  };
-
-  const doBorrow = async () => {
-    if (!otp.trim()) { setError('Please enter the OTP'); return; }
-    setError(''); setVerifying(true);
+  // Google login → borrow
+  const handleBorrowLogin = async (credentialResponse) => {
+    setError(''); setProcessing(true);
     try {
-      const a = await verifyOtp(phone.trim(), name.trim(), otp.trim());
+      const a = await googleAuth(credentialResponse.credential);
       login(a.data.user, a.data.token);
       const b = await borrowCup(cupId);
       updateWallet(b.data.wallet);
       setBorrowResult({ wallet: b.data.wallet });
     } catch (e) { setError(e.response?.data?.message || 'Something went wrong'); }
-    finally { setVerifying(false); }
+    finally { setProcessing(false); }
   };
 
-  const doReturn = async () => {
-    if (!otp.trim()) { setError('Please enter the OTP'); return; }
-    setError(''); setVerifying(true);
+  // Google login → return
+  const handleReturnLogin = async (credentialResponse) => {
+    setError(''); setProcessing(true);
     try {
-      const a = await verifyOtp(phone.trim(), retName.trim(), otp.trim());
+      const a = await googleAuth(credentialResponse.credential);
       login(a.data.user, a.data.token);
-      const r = await returnCup(cupId);
-      updateWallet(r.data.wallet);
-      setReturnResult({ wallet: r.data.wallet, isNewUser: a.data.isNewUser });
+      await returnCup(cupId);
+      setReturnResult({ isNewUser: a.data.isNewUser });
     } catch (e) { setError(e.response?.data?.message || 'Something went wrong'); }
-    finally { setVerifying(false); }
+    finally { setProcessing(false); }
+  };
+
+  // If user is already logged in — allow direct borrow/return
+  const handleDirectBorrow = async () => {
+    setError(''); setProcessing(true);
+    try {
+      const b = await borrowCup(cupId);
+      updateWallet(b.data.wallet);
+      setBorrowResult({ wallet: b.data.wallet });
+    } catch (e) { setError(e.response?.data?.message || 'Something went wrong'); }
+    finally { setProcessing(false); }
+  };
+
+  const handleDirectReturn = async () => {
+    setError(''); setProcessing(true);
+    try {
+      await returnCup(cupId);
+      setReturnResult({ isNewUser: false });
+    } catch (e) { setError(e.response?.data?.message || 'Something went wrong'); }
+    finally { setProcessing(false); }
   };
 
   const isRet = cup?.status === 'borrowed';
-  const ac = isRet ? RET : BRAND;
-  const acL = isRet ? RET_LIGHT : BRAND_LIGHT;
 
   /* ── screens ── */
   if (cupLoading) return <Page><Card><Logo /><Spinner /><p style={st.dim}>Finding your cup…</p></Card></Page>;
 
-  if (cupError) return <Page><Card><Logo /><Icon bg="#fdecea" c="#c0392b">✕</Icon><H>Oops!</H><P>{cupError}</P></Card></Page>;
+  if (cupError) return <Page><Card><Logo /><IconCircle bg="#fdecea" c="#c0392b">✕</IconCircle><H>Oops!</H><P>{cupError}</P></Card></Page>;
 
   if (cup?.status === 'pending') return (
-    <Page><Card><Logo /><Pill id={cup.cupId} /><Icon bg="#FFF3E0" c="#E65100">⏳</Icon>
+    <Page><Card><Logo /><Pill id={cup.cupId} /><IconCircle bg="#FFF3E0" c="#E65100">⏳</IconCircle>
       <H>Return in Progress</H><P>This cup is already being processed for return. Please hand it to a Takeback representative.</P>
     </Card></Page>
   );
 
   if (borrowResult) return (
-    <Page><Card><Logo /><Icon bg={BRAND_LIGHT} c={BRAND}>✓</Icon>
+    <Page><Card><Logo /><IconCircle bg={BRAND_LIGHT} c={BRAND}>✓</IconCircle>
       <H style={{ color: BRAND }}>You've borrowed {cupId}!</H>
       <Receipt rows={[['Deposit deducted', '−₹150', '#DC2626'], ['Remaining balance', `₹${borrowResult.wallet}`, BRAND]]} />
       <Tip bg="#FFFBEB" border="#FEF3C7" icon="💡" color="#78350F">Return any Takeback cup at a partner café to earn <strong>₹50 cashback</strong>!</Tip>
@@ -95,24 +99,28 @@ export default function BorrowPage() {
   );
 
   if (returnResult) return (
-    <Page><Card><Logo /><Icon bg={RET_LIGHT} c={RET}>✓</Icon>
+    <Page><Card><Logo /><IconCircle bg="#FEF3C7" c="#F59E0B">⏳</IconCircle>
       {returnResult.isNewUser ? (
         <>
-          <H style={{ color: RET }}>Welcome to Takeback! 🎉</H>
-          <P>You've been registered and earned ₹50 for returning this cup</P>
-          <Receipt rows={[['Starting balance', '₹200', '#555'], ['Return cashback', '+₹50', '#16A34A'], ['Your wallet', `₹${returnResult.wallet}`, BRAND]]} />
+          <H style={{ color: '#F59E0B' }}>Welcome to Takeback! 🎉</H>
+          <P>You've been registered! Your return request has been submitted.</P>
         </>
       ) : (
-        <>
-          <H style={{ color: RET }}>Cup returned successfully! 🌱</H>
-          <Receipt rows={[['Cashback earned', '+₹50', '#16A34A'], ['New balance', `₹${returnResult.wallet}`, BRAND]]} />
-        </>
+        <H style={{ color: '#F59E0B' }}>Return Request Submitted!</H>
       )}
-      <Tip bg="#ECFDF5" border="#D1FAE5" icon="🌱" color={BRAND_DARK}>Thank you for helping the planet! Every reuse counts towards a greener future.</Tip>
+      <div style={{ width: '100%', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 14, padding: '18px 20px', marginTop: 8, marginBottom: 16, boxSizing: 'border-box' }}>
+        <p style={{ margin: 0, fontSize: 14, color: '#92400E', lineHeight: 1.7, textAlign: 'center' }}>
+          Our team will verify your cup shortly.<br />
+          <strong>₹50 will be credited</strong> to your Takeback wallet once verified.
+        </p>
+      </div>
+      <p style={{ margin: 0, fontSize: 12, color: '#999', textAlign: 'center', lineHeight: 1.5 }}>
+        You'll see the credit reflected in your wallet after the representative confirms receipt.
+      </p>
     </Card></Page>
   );
 
-  /* ── RETURN FORM ── */
+  /* ── RETURN FLOW ── */
   if (isRet) return (
     <Page><Card>
       <Logo />
@@ -121,19 +129,25 @@ export default function BorrowPage() {
       <H>Return this cup</H>
       <P>Earn <strong style={{ color: RET }}>₹50 cashback</strong> added to your Takeback wallet</P>
       {error && <Err>{error}</Err>}
-      <Field label="Your Name"><input style={st.input} type="text" placeholder="Enter your name" value={retName} onChange={e => setRetName(e.target.value)} disabled={otpSent} /></Field>
-      <Field label="Phone Number"><input style={st.input} type="tel" placeholder="10-digit mobile number" value={phone} onChange={e => setPhone(e.target.value)} disabled={otpSent} /></Field>
-      {!otpSent
-        ? <Btn bg={RET} loading={sending} onClick={doSendOtp}>{sending ? 'Sending…' : 'Send OTP'}</Btn>
-        : <>
-            <OtpNote bg={RET_LIGHT} c="#92400E" phone={phone} />
-            <Field label="Enter OTP"><input style={{ ...st.input, textAlign: 'center', letterSpacing: 10, fontSize: '1.4rem', fontWeight: 700 }} type="text" placeholder="• • • •" maxLength={6} value={otp} onChange={e => setOtp(e.target.value)} /></Field>
-            <Btn bg={RET} loading={verifying} onClick={doReturn}>{verifying ? 'Processing…' : 'Confirm Return'}</Btn>
-          </>}
+
+      {user ? (
+        <>
+          <UserBadge user={user} />
+          <Btn bg={RET} loading={processing} onClick={handleDirectReturn}>
+            {processing ? 'Processing…' : 'Confirm Return'}
+          </Btn>
+        </>
+      ) : (
+        <GoogleSection
+          onSuccess={handleReturnLogin}
+          onError={() => setError('Google login failed. Please try again.')}
+          processing={processing}
+        />
+      )}
     </Card></Page>
   );
 
-  /* ── BORROW FORM ── */
+  /* ── BORROW FLOW ── */
   return (
     <Page><Card>
       <Logo />
@@ -145,20 +159,57 @@ export default function BorrowPage() {
         <span style={{ fontWeight: 700, color: BRAND, fontSize: '1.1rem' }}>₹200</span>
       </div>
       {error && <Err>{error}</Err>}
-      <Field label="Name"><input style={st.input} type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} disabled={otpSent} /></Field>
-      <Field label="Phone Number"><input style={st.input} type="tel" placeholder="10-digit mobile number" value={phone} onChange={e => setPhone(e.target.value)} disabled={otpSent} /></Field>
-      {!otpSent
-        ? <Btn loading={sending} onClick={doSendOtp}>{sending ? 'Sending…' : 'Send OTP'}</Btn>
-        : <>
-            <OtpNote phone={phone} />
-            <Field label="Enter OTP"><input style={{ ...st.input, textAlign: 'center', letterSpacing: 10, fontSize: '1.4rem', fontWeight: 700 }} type="text" placeholder="• • • •" maxLength={6} value={otp} onChange={e => setOtp(e.target.value)} /></Field>
-            <Btn loading={verifying} onClick={doBorrow}>{verifying ? 'Processing…' : 'Verify & Borrow'}</Btn>
-          </>}
+
+      {user ? (
+        <>
+          <UserBadge user={user} />
+          <Btn loading={processing} onClick={handleDirectBorrow}>
+            {processing ? 'Processing…' : 'Confirm Borrow'}
+          </Btn>
+        </>
+      ) : (
+        <GoogleSection
+          onSuccess={handleBorrowLogin}
+          onError={() => setError('Google login failed. Please try again.')}
+          processing={processing}
+        />
+      )}
     </Card></Page>
   );
 }
 
-/* ── Tiny components ── */
+/* ── Shared components ── */
+
+function GoogleSection({ onSuccess, onError, processing }) {
+  return (
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginTop: 8 }}>
+      <p style={{ margin: 0, fontSize: 14, color: '#888', fontWeight: 500 }}>Sign in to continue</p>
+      {processing ? (
+        <div style={{ padding: 16 }}><Spinner /></div>
+      ) : (
+        <GoogleLogin
+          onSuccess={onSuccess}
+          onError={onError}
+          theme="outline"
+          size="large"
+          text="continue_with"
+          shape="rectangular"
+        />
+      )}
+      <p style={{ margin: 0, fontSize: 12, color: '#bbb' }}>We only access your name and email</p>
+    </div>
+  );
+}
+
+function UserBadge({ user }) {
+  return (
+    <div style={st.userBadge}>
+      {user.picture && <img src={user.picture} alt="" style={{ width: 28, height: 28, borderRadius: '50%' }} />}
+      <span style={{ fontWeight: 600, fontSize: 14 }}>Signed in as {user.name}</span>
+    </div>
+  );
+}
+
 const Page = ({ children }) => <div style={st.page}>{children}</div>;
 const Card = ({ children }) => <div style={st.card}>{children}</div>;
 const H = ({ children, style }) => <h2 style={{ ...st.heading, ...style }}>{children}</h2>;
@@ -179,20 +230,12 @@ function Pill({ id, bg = '#E8F5E9', c = '#2D6A4F' }) {
   return <div style={{ background: bg, color: c, padding: '6px 20px', borderRadius: 20, fontWeight: 700, fontSize: 13, letterSpacing: 1.5, marginBottom: 12, fontFamily: 'monospace' }}>{id}</div>;
 }
 
-function Icon({ bg, c, children }) {
+function IconCircle({ bg, c, children }) {
   return <div style={{ width: 68, height: 68, borderRadius: '50%', background: bg, color: c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, marginBottom: 16 }}>{children}</div>;
-}
-
-function Field({ label, children }) {
-  return <div style={{ width: '100%', marginBottom: 16 }}><label style={st.label}>{label}</label>{children}</div>;
 }
 
 function Btn({ children, bg = BRAND, loading, onClick }) {
   return <button style={{ ...st.btn, background: bg, opacity: loading ? 0.7 : 1 }} onClick={onClick} disabled={loading}>{children}</button>;
-}
-
-function OtpNote({ phone, bg = BRAND_LIGHT, c = BRAND_DARK }) {
-  return <div style={{ ...st.otpNote, background: bg, color: c }}>✓ OTP sent to {phone} <span style={{ fontWeight: 400, opacity: 0.6, fontSize: 12 }}>(use 1234 for demo)</span></div>;
 }
 
 function Receipt({ rows }) {
@@ -225,19 +268,17 @@ const st = {
   card: { width: '100%', maxWidth: 420, background: '#fff', borderRadius: 20, padding: '36px 32px', boxShadow: '0 8px 40px rgba(0,0,0,0.06),0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
   heading: { margin: '0 0 6px', fontSize: 20, fontWeight: 700, color: '#1a1a1a', textAlign: 'center' },
   body: { margin: '0 0 24px', fontSize: 14, color: '#777', textAlign: 'center', lineHeight: 1.6 },
-  label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#555', marginBottom: 6 },
-  input: { width: '100%', height: 48, padding: '0 16px', border: '1.5px solid #ddd', borderRadius: 10, fontSize: 15, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s', background: '#fff' },
   btn: { width: '100%', height: 48, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer', marginTop: 4, transition: 'opacity 0.2s' },
   err: { width: '100%', padding: '10px 16px', background: '#FEF2F2', color: '#DC2626', borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16, textAlign: 'center', boxSizing: 'border-box', border: '1px solid #FECACA' },
-  otpNote: { width: '100%', padding: '10px 16px', background: BRAND_LIGHT, color: BRAND_DARK, borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16, textAlign: 'center', boxSizing: 'border-box' },
   walletInfo: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F0FDF4', border: '1px solid #D1FAE5', borderRadius: 12, padding: '12px 16px', marginBottom: 20, boxSizing: 'border-box' },
   receipt: { width: '100%', background: '#FAFAFA', borderRadius: 12, padding: '18px 20px', margin: '18px 0', boxSizing: 'border-box', border: '1px solid #F0F0F0' },
+  userBadge: { width: '100%', display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #D1FAE5', borderRadius: 10, padding: '10px 16px', marginBottom: 16, boxSizing: 'border-box', color: BRAND_DARK },
   dim: { color: '#aaa', fontSize: 14, fontWeight: 500 },
   spinner: { width: 36, height: 36, border: `3px solid ${BRAND_LIGHT}`, borderTopColor: BRAND, borderRadius: '50%', animation: 'tb-spin 0.8s linear infinite', marginBottom: 12 },
 };
 
 if (typeof document !== 'undefined' && !document.getElementById('tb-bp')) {
   const el = document.createElement('style'); el.id = 'tb-bp';
-  el.textContent = `@keyframes tb-spin{to{transform:rotate(360deg)}}input:focus{border-color:${BRAND}!important}button:hover:not(:disabled){opacity:.85!important}button:active:not(:disabled){transform:scale(.985)}`;
+  el.textContent = `@keyframes tb-spin{to{transform:rotate(360deg)}}button:hover:not(:disabled){opacity:.85!important}button:active:not(:disabled){transform:scale(.985)}`;
   document.head.appendChild(el);
 }

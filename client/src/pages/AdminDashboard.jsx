@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCupStats, getAdminCups, getAdminUsers, getAdminTransactions, verifyCupReturn } from '../api';
+import { getCupStats, getAdminCups, getAdminUsers, getAdminTransactions, verifyCupReturn, markCupReturned } from '../api';
 
 const BRAND = '#2D6A4F';
 const ACCENT = '#52B788';
@@ -28,13 +28,19 @@ export default function AdminDashboard() {
   const [cupFilter, setCupFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
+  const [confirmCup, setConfirmCup] = useState(null);
 
   useEffect(() => {
     setLoading(true); setError('');
     const go = async () => {
       try {
         if (tab === 'overview') { const r = await getCupStats(); setStats(r.data.stats); }
-        else if (tab === 'cups') { const r = await getAdminCups(); setCups(r.data.cups); }
+        else if (tab === 'cups') {
+          const [cupsRes, statsRes] = await Promise.all([getAdminCups(), getCupStats()]);
+          setCups(cupsRes.data.cups);
+          setStats(statsRes.data.stats);
+        }
         else if (tab === 'users') { const r = await getAdminUsers(); setUsers(r.data.users); }
         else { const r = await getAdminTransactions(); setTxns(r.data.transactions); }
       } catch (e) { setError(e.response?.data?.message || 'Failed to load'); }
@@ -43,9 +49,29 @@ export default function AdminDashboard() {
     go();
   }, [tab]);
 
+  const refreshCupsAndStats = async () => {
+    const [cupsRes, statsRes] = await Promise.all([getAdminCups(), getCupStats()]);
+    setCups(cupsRes.data.cups);
+    setStats(statsRes.data.stats);
+  };
+
   const verify = async (id) => {
-    try { await verifyCupReturn(id); const r = await getAdminCups(); setCups(r.data.cups); }
-    catch (e) { alert(e.response?.data?.message || 'Failed'); }
+    try {
+      const res = await verifyCupReturn(id);
+      await refreshCupsAndStats();
+      const userName = res.data.user?.name || 'user';
+      setToast(`Cup verified! ₹50 credited to ${userName}'s wallet`);
+      setTimeout(() => setToast(''), 4000);
+    } catch (e) { alert(e.response?.data?.message || 'Failed'); }
+  };
+
+  const markReturned = async (id) => {
+    try {
+      await markCupReturned(id);
+      await refreshCupsAndStats();
+      setToast('Cup marked as available. No credit given.');
+      setTimeout(() => setToast(''), 4000);
+    } catch (e) { alert(e.response?.data?.message || 'Failed'); }
   };
 
   const filtered = cupFilter === 'all' ? cups : cups.filter(c => c.status === cupFilter);
@@ -54,6 +80,7 @@ export default function AdminDashboard() {
   const fmtShort = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
   return (
+    <>
     <div style={st.layout}>
       {mobileNav && <div style={st.overlay} onClick={() => setMobileNav(false)} />}
 
@@ -86,7 +113,17 @@ export default function AdminDashboard() {
           {loading ? <div style={st.loaderWrap}><div style={st.spinner} /></div> : (
             <>
               {tab === 'overview' && <Overview stats={stats} />}
-              {tab === 'cups' && <Cups cups={filtered} filter={cupFilter} setFilter={setCupFilter} verify={verify} fmt={fmtDate} />}
+              {tab === 'cups' && (
+                <Cups
+                  cups={filtered}
+                  filter={cupFilter}
+                  setFilter={setCupFilter}
+                  verify={verify}
+                  openConfirm={setConfirmCup}
+                  fmt={fmtDate}
+                  stats={stats}
+                />
+              )}
               {tab === 'users' && <Users users={users} fmt={fmtShort} />}
               {tab === 'transactions' && <Txns txns={txns} fmt={fmtDate} />}
             </>
@@ -94,6 +131,21 @@ export default function AdminDashboard() {
         </div>
       </main>
     </div>
+
+    {toast && (
+      <div style={st.toast}>{toast}</div>
+    )}
+    {confirmCup && (
+      <ConfirmModal
+        cupId={confirmCup}
+        onCancel={() => setConfirmCup(null)}
+        onConfirm={async () => {
+          await markReturned(confirmCup);
+          setConfirmCup(null);
+        }}
+      />
+    )}
+    </>
   );
 }
 
@@ -120,15 +172,21 @@ function Overview({ stats }) {
 }
 
 /* ─── Cups ── */
-function Cups({ cups, filter, setFilter, verify, fmt }) {
+function Cups({ cups, filter, setFilter, verify, openConfirm, fmt, stats }) {
   const filters = ['all', 'available', 'borrowed', 'pending'];
+  const filterCounts = {
+    all: stats?.total ?? 0,
+    available: stats?.available ?? 0,
+    borrowed: stats?.borrowed ?? 0,
+    pending: stats?.pending ?? 0,
+  };
   return (
     <>
       <div style={st.filterBar}>
         {filters.map(f => (
           <button key={f} style={{ ...st.filterBtn, ...(filter === f ? st.filterActive : {}) }}
             onClick={() => setFilter(f)}>
-            {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}{f === 'pending' ? ' Return' : ''}
+            {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)} ({filterCounts[f]})
           </button>
         ))}
       </div>
@@ -142,9 +200,22 @@ function Cups({ cups, filter, setFilter, verify, fmt }) {
               <tr key={cup.cupId} style={{ ...st.tr, background: i % 2 === 0 ? '#fff' : '#FAFBFA' }}>
                 <td style={st.td}><span style={st.mono}>{cup.cupId}</span></td>
                 <td style={st.td}><Badge status={cup.status} /></td>
-                <td style={st.td}>{cup.borrowedBy ? <>{cup.borrowedBy.name}<br /><span style={st.sub}>{cup.borrowedBy.phone}</span></> : <span style={st.muted}>—</span>}</td>
+                <td style={st.td}>{cup.borrowedBy ? <>{cup.borrowedBy.name}<br /><span style={st.sub}>{cup.borrowedBy.email}</span></> : <span style={st.muted}>—</span>}</td>
                 <td style={st.td}><span style={st.sub}>{fmt(cup.borrowedAt)}</span></td>
-                <td style={st.td}>{cup.status === 'pending' && <button style={st.verifyBtn} onClick={() => verify(cup.cupId)}>✓ Verify Return</button>}</td>
+                <td style={st.td}>
+                  {(cup.status === 'borrowed' || cup.status === 'pending') && (
+                    <div style={st.actionRow}>
+                      <button style={st.markReturnedBtn} onClick={() => openConfirm(cup.cupId)}>
+                        Mark Returned
+                      </button>
+                      {cup.status === 'pending' && (
+                        <button style={st.verifyBtn} onClick={() => verify(cup.cupId)}>
+                          ✓ Verify & Credit Rs.50
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
             {cups.length === 0 && <tr><td colSpan={5} style={st.empty}>No cups found</td></tr>}
@@ -155,17 +226,32 @@ function Cups({ cups, filter, setFilter, verify, fmt }) {
   );
 }
 
+function ConfirmModal({ cupId, onCancel, onConfirm }) {
+  return (
+    <div style={st.confirmOverlay}>
+      <div style={st.confirmCard}>
+        <h3 style={st.confirmTitle}>Confirm Action</h3>
+        <p style={st.confirmMessage}>Mark {cupId} as returned? No wallet credit will be given.</p>
+        <div style={st.confirmButtons}>
+          <button style={st.confirmCancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={st.confirmActionBtn} onClick={onConfirm}>Confirm</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Users ── */
 function Users({ users, fmt }) {
   return (
     <div style={st.tableWrap}>
       <table style={st.table}>
-        <thead><tr>{['Name', 'Phone', 'Wallet', 'Joined'].map(h => <th key={h} style={st.th}>{h}</th>)}</tr></thead>
+        <thead><tr>{['Name', 'Email', 'Wallet', 'Joined'].map(h => <th key={h} style={st.th}>{h}</th>)}</tr></thead>
         <tbody>
           {users.map((u, i) => (
             <tr key={u._id} style={{ ...st.tr, background: i % 2 === 0 ? '#fff' : '#FAFBFA' }}>
               <td style={{ ...st.td, fontWeight: 600 }}>{u.name}</td>
-              <td style={st.td}>{u.phone}</td>
+              <td style={st.td}><span style={st.sub}>{u.email}</span></td>
               <td style={st.td}><span style={{ fontWeight: 700, color: BRAND }}>₹{u.wallet}</span></td>
               <td style={st.td}><span style={st.sub}>{fmt(u.createdAt)}</span></td>
             </tr>
@@ -186,7 +272,7 @@ function Txns({ txns, fmt }) {
         <tbody>
           {txns.map((tx, i) => (
             <tr key={tx._id} style={{ ...st.tr, background: i % 2 === 0 ? '#fff' : '#FAFBFA' }}>
-              <td style={st.td}>{tx.userId ? <>{tx.userId.name}<br /><span style={st.sub}>{tx.userId.phone}</span></> : <span style={st.muted}>Unknown</span>}</td>
+              <td style={st.td}>{tx.userId ? <>{tx.userId.name}<br /><span style={st.sub}>{tx.userId.email}</span></> : <span style={st.muted}>Unknown</span>}</td>
               <td style={st.td}><span style={st.mono}>{tx.cupId}</span></td>
               <td style={st.td}><span style={{ ...st.typeBadge, background: tx.type === 'borrow' ? '#FFF3E0' : '#E8F5E9', color: tx.type === 'borrow' ? '#E65100' : '#2E7D32' }}>{tx.type}</span></td>
               <td style={st.td}><span style={{ fontWeight: 700, color: tx.amount < 0 ? '#DC2626' : '#16A34A' }}>{tx.amount > 0 ? '+' : ''}₹{Math.abs(tx.amount)}</span></td>
@@ -246,7 +332,21 @@ const st = {
   sub: { fontSize: 12, color: '#999' },
   muted: { color: '#ddd' },
   typeBadge: { display: 'inline-block', padding: '4px 14px', borderRadius: 14, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' },
-  verifyBtn: { padding: '6px 14px', background: BRAND, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' },
+  actionRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  markReturnedBtn: { padding: '6px 14px', background: '#fff', color: '#6B7280', border: '1px solid #6B7280', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s', whiteSpace: 'nowrap' },
+  verifyBtn: { padding: '6px 14px', background: BRAND, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s', whiteSpace: 'nowrap' },
+
+  /* Toast */
+  toast: { position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1a1a1a', color: '#fff', padding: '12px 28px', borderRadius: 12, fontSize: 14, fontWeight: 500, zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,0.25)', whiteSpace: 'nowrap' },
+
+  /* Confirm modal */
+  confirmOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, animation: 'tb-fade-in 0.2s ease-out' },
+  confirmCard: { width: 'calc(100% - 32px)', maxWidth: 380, background: '#fff', borderRadius: 16, padding: 28, boxSizing: 'border-box', boxShadow: '0 18px 40px rgba(0,0,0,0.15)' },
+  confirmTitle: { margin: 0, fontSize: 20, fontWeight: 700, color: '#111827' },
+  confirmMessage: { margin: '12px 0 0', fontSize: 14, color: '#6b7280', lineHeight: 1.5 },
+  confirmButtons: { marginTop: 20, display: 'flex', justifyContent: 'space-between', gap: 10 },
+  confirmCancelBtn: { flex: 1, padding: '10px 14px', borderRadius: 10, border: '1px solid #6B7280', background: '#fff', color: '#6B7280', fontWeight: 600, cursor: 'pointer' },
+  confirmActionBtn: { flex: 1, padding: '10px 14px', borderRadius: 10, border: 'none', background: '#374151', color: '#fff', fontWeight: 600, cursor: 'pointer' },
 
   /* Misc */
   errBox: { padding: '10px 16px', background: '#FEF2F2', color: '#DC2626', borderRadius: 10, fontSize: 14, marginBottom: 20, border: '1px solid #FECACA' },
@@ -258,6 +358,7 @@ if (typeof document !== 'undefined' && !document.getElementById('tb-admin')) {
   const el = document.createElement('style'); el.id = 'tb-admin';
   el.textContent = `
     @keyframes tb-spin{to{transform:rotate(360deg)}}
+    @keyframes tb-fade-in{from{opacity:0}to{opacity:1}}
     button:hover:not(:disabled){opacity:.85!important}
     @media(max-width:768px){
       [data-tb-sidebar]{transform:translateX(-100%);position:fixed}
