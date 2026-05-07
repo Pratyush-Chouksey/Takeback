@@ -4,7 +4,6 @@ import BorrowPage from './pages/BorrowPage';
 import ReturnPage from './pages/ReturnPage';
 import AdminDashboard from './pages/AdminDashboard';
 import LandingPage from './pages/LandingPage';
-import ScanPage from './pages/ScanPage';
 import EnterCupPage from './pages/EnterCupPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -14,7 +13,6 @@ export default function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/scan" element={<ScanPage />} />
         <Route path="/enter-cup" element={<EnterCupPage />} />
         <Route path="/borrow" element={<ProtectedRoute><BorrowPage /></ProtectedRoute>} />
         <Route path="/return" element={<ProtectedRoute><ReturnPage /></ProtectedRoute>} />

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const BRAND = '#52B788';
 
@@ -48,8 +49,9 @@ const styles = {
     fontWeight: 600,
   },
   ctaRow: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  ctaButton: { marginTop: 32, padding: '16px 36px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 16, fontWeight: 800, background: BRAND, color: '#0f1f16' },
-  ctaLink: { marginTop: 18, fontSize: 13, color: BRAND, textDecoration: 'underline', cursor: 'pointer', fontWeight: 700 },
+  ctaButton: { marginTop: 32, padding: '16px 36px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 16, fontWeight: 700, background: BRAND, color: '#0f1f16' },
+  ctaOutline: { marginTop: 12, padding: '16px 36px', borderRadius: 12, border: `1.5px solid ${BRAND}`, cursor: 'pointer', fontSize: 16, fontWeight: 700, background: 'transparent', color: BRAND },
+  welcome: { fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 12, opacity: 0.92 },
   stepsWrap: { padding: '24px 0 18px' },
   steps: { display: 'flex', gap: 32, justifyContent: 'center', flexWrap: 'wrap' },
   step: { width: 260, textAlign: 'center' },
@@ -62,6 +64,7 @@ const styles = {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -72,6 +75,8 @@ export default function LandingPage() {
     el.textContent = `
       .tb-landing-cta{transition: background 0.15s ease, transform 0.15s ease;}
       .tb-landing-cta:hover{background:#3d9e6e!important; transform: translateY(-2px);}
+      .tb-landing-outline{transition: border-color 0.15s ease, transform 0.15s ease, color 0.15s ease, background 0.15s ease;}
+      .tb-landing-outline:hover{transform: translateY(-2px); border-color:#3d9e6e!important; color:#3d9e6e!important;}
       .tb-landing-admin:hover{color:${BRAND}!important;}
     `;
     document.head.appendChild(el);
@@ -81,6 +86,7 @@ export default function LandingPage() {
     <div style={styles.page}>
       <div style={styles.heroWrap}>
         <div style={styles.hero}>
+          {user ? <div style={styles.welcome}>Welcome back, {user.name} 👋</div> : null}
           <h1 style={styles.logo}>🍃 Takeback</h1>
           <div style={styles.tagline}>Borrow smart. Return kind.</div>
           <div style={styles.subtext}>
@@ -94,12 +100,14 @@ export default function LandingPage() {
           </div>
 
           <div style={styles.ctaRow}>
-            <button className="tb-landing-cta" style={styles.ctaButton} onClick={() => navigate('/scan')}>
-              Scan a Cup to Borrow
+            <button className="tb-landing-cta" style={styles.ctaButton} onClick={() => navigate('/enter-cup')}>
+              {user ? 'Borrow a Cup →' : 'Enter Cup Code to Borrow →'}
             </button>
-            <div style={styles.ctaLink} onClick={() => navigate('/enter-cup')}>
-              Already have a cup code? Enter it manually →
-            </div>
+            {user ? (
+              <button className="tb-landing-outline" style={styles.ctaOutline} onClick={() => navigate('/enter-cup')}>
+                View My Wallet (Rs. {user.wallet}) 
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

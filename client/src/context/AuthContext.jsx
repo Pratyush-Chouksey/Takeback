@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { getMe, setAuthToken } from '../api';
 
 const AuthContext = createContext(null);
@@ -8,7 +7,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   // Restore session on mount
   useEffect(() => {
@@ -52,7 +50,7 @@ export function AuthProvider({ children }) {
 
     verifyAndRestore();
     return () => { cancelled = true; };
-  }, [navigate]);
+  }, []);
 
   const login = (userData, authToken) => {
     // userData: { name, email, picture, wallet }
@@ -64,12 +62,15 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    setUser(null);
-    setToken(null);
     localStorage.removeItem('takeback_token');
     localStorage.removeItem('takeback_user');
+    sessionStorage.removeItem('takeback_redirect');
     setAuthToken(null);
-    navigate('/');
+    setUser(null);
+    setToken(null);
+
+    // Hard redirect is most reliable and clears stale UI state.
+    window.location.href = '/';
   };
 
   const updateWallet = (newBalance) => {

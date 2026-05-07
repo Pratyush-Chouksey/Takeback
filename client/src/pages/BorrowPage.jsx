@@ -19,19 +19,29 @@ export default function BorrowPage() {
 
   const [cup, setCup] = useState(null);
   const [cupLoading, setCupLoading] = useState(true);
-  const [cupError, setCupError] = useState('');
+  const [cupNotFound, setCupNotFound] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [borrowResult, setBorrowResult] = useState(null);
   const [returnResult, setReturnResult] = useState(null);
 
   useEffect(() => {
-    if (!cupId) { setCupLoading(false); setCupError('No cup ID found. Please scan a valid QR code.'); return; }
+    if (!cupId) {
+      navigate('/enter-cup', { replace: true });
+      return;
+    }
+
+    setCupNotFound(false);
+    setCup(null);
+    setCupLoading(true);
     getCup(cupId)
       .then((r) => setCup(r.data.cup))
-      .catch(() => setCupError('Cup not found. Please check the QR code.'))
+      .catch((e) => {
+        if (e.response?.status === 404) setCupNotFound(true);
+        else setError(e.response?.data?.message || 'Something went wrong');
+      })
       .finally(() => setCupLoading(false));
-  }, [cupId]);
+  }, [cupId, navigate]);
 
   // If login happened via ProtectedRoute, auto-continue the intended flow.
   useEffect(() => {
@@ -134,7 +144,15 @@ export default function BorrowPage() {
   /* ── screens ── */
   if (cupLoading) return <Page><Card><Logo /><Spinner /><p style={st.dim}>Finding your cup…</p></Card></Page>;
 
-  if (cupError) return <Page><Card><Logo /><IconCircle bg="#fdecea" c="#c0392b">✕</IconCircle><H>Oops!</H><P>{cupError}</P></Card></Page>;
+  if (cupNotFound) return (
+    <Page><Card>
+      <Logo />
+      <div style={{ fontSize: 48, marginBottom: 10 }}>🔍</div>
+      <H style={{ color: '#111827' }}>Cup Not Found</H>
+      <P>We couldn&apos;t find cup <strong>{cupId}</strong>. Please check the code.</P>
+      <Btn onClick={() => navigate('/enter-cup')}>Try Another Code</Btn>
+    </Card></Page>
+  );
 
   if (cup?.status === 'pending') return (
     <Page><Card><Logo /><Pill id={cup.cupId} /><IconCircle bg="#FFF3E0" c="#E65100">⏳</IconCircle>

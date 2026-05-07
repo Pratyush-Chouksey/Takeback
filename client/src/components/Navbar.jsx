@@ -13,8 +13,7 @@ export default function Navbar() {
   const show =
     location.pathname === '/borrow' ||
     location.pathname === '/return' ||
-    location.pathname === '/enter-cup' ||
-    location.pathname === '/scan';
+    location.pathname === '/enter-cup';
 
   if (!show) return null;
 

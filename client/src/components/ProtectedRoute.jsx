@@ -26,6 +26,14 @@ export default function ProtectedRoute({ children }) {
   const cupId = useMemo(() => getCupIdFromSearch(location.search), [location.search]);
 
   useEffect(() => {
+    // Visiting /borrow without a cupId should send users to enter-cup,
+    // regardless of auth state (no login gate needed).
+    if (location.pathname === '/borrow' && !cupId) {
+      navigate('/enter-cup', { replace: true });
+    }
+  }, [location.pathname, cupId, navigate]);
+
+  useEffect(() => {
     if (loading) return;
     if (!user) {
       sessionStorage.setItem('takeback_redirect', intendedUrl);
