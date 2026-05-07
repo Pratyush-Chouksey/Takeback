@@ -64,9 +64,9 @@ router.post('/google', async (req, res) => {
   }
 });
 
-// POST /api/auth/me
 // Protected — return current user data from JWT
-router.post('/me', async (req, res) => {
+// Supports both GET and POST for backward compatibility.
+async function meHandler(req, res) {
   try {
     const authHeader = req.headers.authorization;
 
@@ -98,6 +98,9 @@ router.post('/me', async (req, res) => {
     }
     return res.status(500).json({ success: false, message: err.message });
   }
-});
+}
+
+router.get('/me', meHandler);
+router.post('/me', meHandler);
 
 module.exports = router;

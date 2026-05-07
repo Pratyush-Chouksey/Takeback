@@ -1,36 +1,58 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { setAuthToken } from '../api';
+import { useNavigate } from 'react-router-dom';
+import { getMe, setAuthToken } from '../api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  const [toast, setToast] = useState('');
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Restore session on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('takeback_token');
-    const savedUser = localStorage.getItem('takeback_user');
-    if (savedToken && savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        setToken(savedToken);
-        setUser(parsed);
-        setAuthToken(savedToken);
-      } catch {
-        localStorage.removeItem('takeback_token');
-        localStorage.removeItem('takeback_user');
-      }
-    }
-  }, []);
+    let cancelled = false;
 
-  // Auto-dismiss toast
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(''), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
+    const verifyAndRestore = async () => {
+      const savedToken = localStorage.getItem('takeback_token');
+      const savedUser = JSON.parse(localStorage.getItem('takeback_user') || 'null');
+
+      if (!savedToken) {
+        if (!cancelled) {
+          setUser(null);
+          setToken(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        setAuthToken(savedToken);
+        const r = await getMe();
+
+        if (!cancelled) {
+          setUser(r.data.user || savedUser || null);
+          setToken(savedToken);
+          setLoading(false);
+        }
+      } catch (e) {
+        const status = e.response?.status;
+        if (status === 401 && !cancelled) {
+          localStorage.removeItem('takeback_token');
+          localStorage.removeItem('takeback_user');
+          setAuthToken(null);
+          setUser(null);
+          setToken(null);
+        }
+
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    verifyAndRestore();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   const login = (userData, authToken) => {
     // userData: { name, email, picture, wallet }
@@ -44,10 +66,10 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setUser(null);
     setToken(null);
-    setAuthToken(null);
     localStorage.removeItem('takeback_token');
     localStorage.removeItem('takeback_user');
-    setToast("You've been logged out");
+    setAuthToken(null);
+    navigate('/');
   };
 
   const updateWallet = (newBalance) => {
@@ -60,7 +82,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateWallet, toast }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateWallet, loading }}>
       {children}
     </AuthContext.Provider>
   );

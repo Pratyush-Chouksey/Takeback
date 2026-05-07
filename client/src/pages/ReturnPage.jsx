@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { googleAuth, returnCup } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ const BRAND_DARK = '#1B4332';
 
 export default function ReturnPage() {
   const { user, login } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const urlCupId = searchParams.get('cupId') || '';
 
@@ -26,6 +27,14 @@ export default function ReturnPage() {
     try {
       const res = await googleAuth(credentialResponse.credential);
       login(res.data.user, res.data.token);
+
+      const redirect = sessionStorage.getItem('takeback_redirect');
+      if (redirect) {
+        sessionStorage.removeItem('takeback_redirect');
+        navigate(redirect);
+        return;
+      }
+
       setVerified(true);
       setIsNewUser(res.data.isNewUser);
     } catch (err) {

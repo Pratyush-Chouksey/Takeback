@@ -3,49 +3,24 @@ import Navbar from './components/Navbar';
 import BorrowPage from './pages/BorrowPage';
 import ReturnPage from './pages/ReturnPage';
 import AdminDashboard from './pages/AdminDashboard';
-import { useAuth } from './context/AuthContext';
-
-const BRAND = '#2D6A4F';
+import LandingPage from './pages/LandingPage';
+import ScanPage from './pages/ScanPage';
+import EnterCupPage from './pages/EnterCupPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 export default function App() {
-  const { toast } = useAuth();
-
   return (
     <>
       <Navbar />
-      {toast && (
-        <div style={toastStyle}>
-          {toast}
-        </div>
-      )}
       <Routes>
-        <Route path="/borrow" element={<BorrowPage />} />
-        <Route path="/return" element={<ReturnPage />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/scan" element={<ScanPage />} />
+        <Route path="/enter-cup" element={<EnterCupPage />} />
+        <Route path="/borrow" element={<ProtectedRoute><BorrowPage /></ProtectedRoute>} />
+        <Route path="/return" element={<ProtectedRoute><ReturnPage /></ProtectedRoute>} />
         <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="*" element={<Navigate to="/borrow" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
-}
-
-const toastStyle = {
-  position: 'fixed',
-  bottom: 24,
-  left: '50%',
-  transform: 'translateX(-50%)',
-  background: '#1a1a1a',
-  color: '#fff',
-  padding: '10px 24px',
-  borderRadius: 10,
-  fontSize: 14,
-  fontWeight: 500,
-  zIndex: 9999,
-  boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-  animation: 'tb-toast-in 0.3s ease',
-};
-
-if (typeof document !== 'undefined' && !document.getElementById('tb-toast')) {
-  const el = document.createElement('style'); el.id = 'tb-toast';
-  el.textContent = `@keyframes tb-toast-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`;
-  document.head.appendChild(el);
 }

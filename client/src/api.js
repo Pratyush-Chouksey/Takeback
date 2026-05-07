@@ -18,7 +18,7 @@ export const googleAuth = (credential) =>
   api.post('/api/auth/google', { credential });
 
 export const getMe = () =>
-  api.post('/api/auth/me');
+  api.get('/api/auth/me');
 
 // ── Cups ──────────────────────────────────────────
 export const getCup = (cupId) =>
