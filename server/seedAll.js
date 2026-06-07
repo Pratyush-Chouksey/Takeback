@@ -9,13 +9,14 @@ const Cup = require('./models/Cup');
 const Transaction = require('./models/Transaction');
 
 // ── Config ──────────────────────────────────────────
-const TOTAL_CUPS = 6300;
-const CUPS_BORROWED = 1237;
-const CUPS_AVAILABLE = 5063;
-const TOTAL_USERS = 1050;
-const RETURN_PAIRS = 3000; // completed borrow+return pairs from available cups
-const QR_COUNT = 50;
-const QR_BASE_URL = 'https://takeback-nine.vercel.app/borrow?cupId=';
+const TOTAL_CUPS     = 10000;
+const CUPS_AVAILABLE = 7694;
+const CUPS_PENDING   = 150;
+const CUPS_BORROWED  = TOTAL_CUPS - CUPS_AVAILABLE - CUPS_PENDING; // 2156
+const TOTAL_USERS    = 1050;
+const RETURN_PAIRS   = 4000;
+const QR_COUNT       = 100;
+const QR_BASE_URL    = 'https://takeback-nine.vercel.app/borrow?cupId=';
 
 const FIRST_NAMES = [
   'Aarav','Vivaan','Aditya','Vihaan','Arjun','Sai','Reyansh','Ayaan','Krishna',
@@ -33,36 +34,38 @@ const LAST_NAMES = [
 ];
 
 // ── Helpers ─────────────────────────────────────────
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const pick    = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 function randomDate(daysAgo) {
-  const now = Date.now();
-  return new Date(now - Math.random() * daysAgo * 24 * 60 * 60 * 1000);
+  return new Date(Date.now() - Math.random() * daysAgo * 86400000);
+}
+
+function daysAfter(date, min, max) {
+  return new Date(date.getTime() + randInt(min, max) * 86400000);
 }
 
 function padId(n) {
   return `CUP_${String(n).padStart(4, '0')}`;
 }
 
-function genPhone(usedPhones) {
+function genPhone(used) {
   const prefixes = ['7', '8', '9'];
   let phone;
   do {
     phone = pick(prefixes);
     for (let i = 0; i < 9; i++) phone += String(randInt(0, 9));
-  } while (usedPhones.has(phone));
-  usedPhones.add(phone);
+  } while (used.has(phone));
+  used.add(phone);
   return phone;
 }
 
-function genEmail(first, last, usedEmails) {
+function genEmail(first, last, used) {
   let email;
   do {
-    const num = randInt(10, 999);
-    email = `${first.toLowerCase()}.${last.toLowerCase()}${num}@gmail.com`;
-  } while (usedEmails.has(email));
-  usedEmails.add(email);
+    email = `${first.toLowerCase()}.${last.toLowerCase()}${randInt(10, 999)}@gmail.com`;
+  } while (used.has(email));
+  used.add(email);
   return email;
 }
 
@@ -82,70 +85,91 @@ async function seed() {
   ]);
   console.log('   Done.\n');
 
-  // ════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
   //  1. CREATE USERS
-  // ════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
   console.log(`👤 Creating ${TOTAL_USERS} users...`);
   const usedPhones = new Set();
   const usedEmails = new Set();
-  const userDocs = [];
+  const userDocs   = [];
 
   for (let i = 0; i < TOTAL_USERS; i++) {
     const first = pick(FIRST_NAMES);
-    const last = pick(LAST_NAMES);
+    const last  = pick(LAST_NAMES);
     userDocs.push({
-      name: `${first} ${last}`,
-      email: genEmail(first, last, usedEmails),
-      phone: genPhone(usedPhones),
-      wallet: randInt(0, 500),
+      name:      `${first} ${last}`,
+      email:     genEmail(first, last, usedEmails),
+      phone:     genPhone(usedPhones),
+      wallet:    randInt(50, 800),
       createdAt: randomDate(180),
     });
-    if ((i + 1) % 500 === 0) console.log(`   ...${i + 1} users prepared`);
+    if ((i + 1) % 500 === 0)
+      console.log(`   ...${i + 1} users prepared`);
   }
 
   const users = await User.insertMany(userDocs);
   console.log(`   ✅ ${users.length} users created.\n`);
 
-  // ════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
   //  2. CREATE CUPS
-  // ════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
   console.log(`☕ Creating ${TOTAL_CUPS} cups...`);
   const cupDocs = [];
-  let cupIndex = 1;
+  let idx = 1;
 
-  // --- Borrowed cups ---
-  for (let i = 0; i < CUPS_BORROWED; i++, cupIndex++) {
-    const user = pick(users);
+  // ── Borrowed cups (2156) ──
+  for (let i = 0; i < CUPS_BORROWED; i++, idx++) {
+    const user       = pick(users);
     const borrowedAt = randomDate(30);
     cupDocs.push({
-      cupId: padId(cupIndex),
-      status: 'borrowed',
+      cupId:      padId(idx),
+      status:     'borrowed',
       borrowedBy: user._id,
       borrowedAt,
     });
-    if (cupIndex % 500 === 0) console.log(`   ...${cupIndex} cups prepared`);
+    if (idx % 1000 === 0)
+      console.log(`   ...${idx} cups prepared`);
   }
 
-  // --- Available cups ---
-  for (let i = 0; i < CUPS_AVAILABLE; i++, cupIndex++) {
+  // ── Pending cups (150) ──
+  for (let i = 0; i < CUPS_PENDING; i++, idx++) {
+    const borrowUser   = pick(users);
+    const returnUser   = pick(users);
+    const borrowedAt   = randomDate(8);   // borrowed 1-8 days ago
+    const returnedAt   = daysAfter(borrowedAt, 1, 3);
+
     cupDocs.push({
-      cupId: padId(cupIndex),
+      cupId:                padId(idx),
+      status:               'pending',
+      borrowedBy:           borrowUser._id,
+      borrowedAt,
+      returnRequestedBy:    returnUser._id,
+      returnRequestedAt:    returnedAt,
+    });
+    if (idx % 1000 === 0)
+      console.log(`   ...${idx} cups prepared`);
+  }
+
+  // ── Available cups (7694) ──
+  for (let i = 0; i < CUPS_AVAILABLE; i++, idx++) {
+    cupDocs.push({
+      cupId:  padId(idx),
       status: 'available',
     });
-    if (cupIndex % 500 === 0) console.log(`   ...${cupIndex} cups prepared`);
+    if (idx % 1000 === 0)
+      console.log(`   ...${idx} cups prepared`);
   }
 
   // Insert in batches of 1000
   for (let b = 0; b < cupDocs.length; b += 1000) {
     await Cup.insertMany(cupDocs.slice(b, b + 1000));
-    if ((b + 1000) % 500 === 0 || b + 1000 >= cupDocs.length)
-      console.log(`   ...inserted ${Math.min(b + 1000, cupDocs.length)} cups`);
+    console.log(`   ...inserted ${Math.min(b + 1000, cupDocs.length)} / ${TOTAL_CUPS} cups`);
   }
   console.log(`   ✅ ${cupDocs.length} cups created.\n`);
 
-  // ════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
   //  3. CREATE TRANSACTIONS
-  // ════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
   console.log('📋 Creating transactions...');
   const txDocs = [];
 
@@ -153,81 +177,97 @@ async function seed() {
   for (let i = 0; i < CUPS_BORROWED; i++) {
     const cup = cupDocs[i];
     txDocs.push({
-      userId: cup.borrowedBy,
-      cupId: cup.cupId,
-      type: 'borrow',
-      amount: -150,
+      userId:    cup.borrowedBy,
+      cupId:     cup.cupId,
+      type:      'borrow',
+      amount:    -150,
       timestamp: cup.borrowedAt,
     });
   }
-  console.log(`   ...${txDocs.length} borrow transactions for active borrows`);
+  console.log(`   ...${CUPS_BORROWED} borrow txns for active borrows`);
 
-  // 3000 completed borrow+return pairs from available cups
+  // Borrow txn for every pending cup (no return credit yet)
+  for (let i = CUPS_BORROWED; i < CUPS_BORROWED + CUPS_PENDING; i++) {
+    const cup = cupDocs[i];
+    txDocs.push({
+      userId:    cup.borrowedBy,
+      cupId:     cup.cupId,
+      type:      'borrow',
+      amount:    -150,
+      timestamp: cup.borrowedAt,
+    });
+  }
+  console.log(`   ...${CUPS_PENDING} borrow txns for pending cups`);
+
+  // 4000 completed borrow + return pairs (historical)
+  const availStart = CUPS_BORROWED + CUPS_PENDING;
   for (let i = 0; i < RETURN_PAIRS; i++) {
-    const user = pick(users);
-    const availIdx = CUPS_BORROWED + randInt(0, CUPS_AVAILABLE - 1);
-    const cup = cupDocs[availIdx];
-    const borrowDate = randomDate(30);
-    // return 1-3 days after borrow
-    const returnDate = new Date(borrowDate.getTime() + randInt(1, 3) * 24 * 60 * 60 * 1000);
+    const user       = pick(users);
+    const cup        = cupDocs[availStart + randInt(0, CUPS_AVAILABLE - 1)];
+    const borrowDate = randomDate(90);
+    const returnDate = daysAfter(borrowDate, 1, 4);
 
     txDocs.push({
-      userId: user._id,
-      cupId: cup.cupId,
-      type: 'borrow',
-      amount: -150,
+      userId:    user._id,
+      cupId:     cup.cupId,
+      type:      'borrow',
+      amount:    -150,
       timestamp: borrowDate,
     });
     txDocs.push({
-      userId: user._id,
-      cupId: cup.cupId,
-      type: 'return',
-      amount: 50,
+      userId:    user._id,
+      cupId:     cup.cupId,
+      type:      'return',
+      amount:    50,
       timestamp: returnDate,
     });
 
-    if ((i + 1) % 500 === 0) console.log(`   ...${i + 1} borrow/return pairs prepared`);
+    if ((i + 1) % 1000 === 0)
+      console.log(`   ...${i + 1} / ${RETURN_PAIRS} return pairs prepared`);
   }
 
   // Insert in batches of 1000
   for (let b = 0; b < txDocs.length; b += 1000) {
     await Transaction.insertMany(txDocs.slice(b, b + 1000));
-    if ((b + 1000) % 500 === 0 || b + 1000 >= txDocs.length)
-      console.log(`   ...inserted ${Math.min(b + 1000, txDocs.length)} transactions`);
+    console.log(`   ...inserted ${Math.min(b + 1000, txDocs.length)} / ${txDocs.length} transactions`);
   }
   console.log(`   ✅ ${txDocs.length} transactions created.\n`);
 
-  // ════════════════════════════════════════════════════
-  //  4. GENERATE QR CODES (first 50 only)
-  // ════════════════════════════════════════════════════
-  console.log(`📱 Generating QR codes for first ${QR_COUNT} cups...`);
+  // ════════════════════════════════════════════════
+  //  4. GENERATE QR CODES (first 100 cups)
+  // ════════════════════════════════════════════════
+  console.log(`📱 Generating ${QR_COUNT} QR codes...`);
   const qrDir = path.join(__dirname, 'qr-codes');
   if (!fs.existsSync(qrDir)) fs.mkdirSync(qrDir, { recursive: true });
 
   for (let i = 1; i <= QR_COUNT; i++) {
-    const id = padId(i);
-    const url = `${QR_BASE_URL}${id}`;
+    const id       = padId(i);
     const filePath = path.join(qrDir, `${id}.png`);
-    await QRCode.toFile(filePath, url, { width: 300, margin: 2 });
-    if (i % 10 === 0) console.log(`   ...${i}/${QR_COUNT} QR codes`);
+    await QRCode.toFile(filePath, `${QR_BASE_URL}${id}`, {
+      width: 300, margin: 2,
+    });
+    if (i % 20 === 0)
+      console.log(`   ...${i} / ${QR_COUNT} QR codes done`);
   }
   console.log(`   ✅ ${QR_COUNT} QR codes saved to ./qr-codes/\n`);
 
-  // ════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
   //  SUMMARY
-  // ════════════════════════════════════════════════════
-  const borrowOnlyCount = CUPS_BORROWED;
-  const pairBorrowCount = RETURN_PAIRS;
-  const pairReturnCount = RETURN_PAIRS;
-
-  console.log('═══════════════════════════════════════');
+  // ════════════════════════════════════════════════
+  console.log('═══════════════════════════════════════════');
   console.log('  🌱 SEED COMPLETE');
-  console.log('═══════════════════════════════════════');
-  console.log(`  Users created:        ${users.length}`);
-  console.log(`  Cups created:         ${cupDocs.length} (${CUPS_BORROWED} borrowed, ${CUPS_AVAILABLE} available)`);
-  console.log(`  Transactions created: ${txDocs.length} (${borrowOnlyCount} borrow + ${RETURN_PAIRS} borrow/return pairs)`);
-  console.log(`  QR codes generated:   ${QR_COUNT}`);
-  console.log('═══════════════════════════════════════\n');
+  console.log('═══════════════════════════════════════════');
+  console.log(`  Users:        ${users.length}`);
+  console.log(`  Cups:         ${TOTAL_CUPS}`);
+  console.log(`    Available:  ${CUPS_AVAILABLE}`);
+  console.log(`    Borrowed:   ${CUPS_BORROWED}`);
+  console.log(`    Pending:    ${CUPS_PENDING}`);
+  console.log(`  Transactions: ${txDocs.length}`);
+  console.log(`    Active borrows:   ${CUPS_BORROWED}`);
+  console.log(`    Pending borrows:  ${CUPS_PENDING}`);
+  console.log(`    Historical pairs: ${RETURN_PAIRS} x2 = ${RETURN_PAIRS * 2}`);
+  console.log(`  QR codes:     ${QR_COUNT}`);
+  console.log('═══════════════════════════════════════════\n');
 
   await mongoose.disconnect();
   process.exit(0);

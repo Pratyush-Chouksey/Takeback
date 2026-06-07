@@ -1,205 +1,243 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCup } from '../api';
-
-const BRAND = '#2D6A4F';
-const BRAND_FOCUS = 'rgba(45,106,79,0.1)';
-
-const pageStyles = {
-  page: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #0f1f16 0%, #1a3a24 50%, #0f1f16 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '32px 16px',
-    boxSizing: 'border-box',
-    fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-    position: 'relative',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    background: '#fff',
-    borderRadius: 24,
-    padding: 40,
-    boxSizing: 'border-box',
-    textAlign: 'left',
-    boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
-    position: 'relative',
-  },
-  backBtn: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    background: 'none',
-    border: 'none',
-    color: '#6b7280',
-    cursor: 'pointer',
-    fontSize: 18,
-    fontWeight: 700,
-  },
-  logoRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10 },
-  logoEmoji: { fontSize: 32 },
-  logoText: { fontSize: 24, fontWeight: 800, color: BRAND, letterSpacing: -0.3 },
-  tagline: { marginTop: 6, textAlign: 'center', fontSize: 13, color: '#6b7280' },
-  divider: { height: 1, background: '#f3f4f6', margin: '20px 0' },
-  heading: { margin: 0, fontSize: 22, fontWeight: 700, color: '#111827' },
-  sub: { marginTop: 8, color: '#6b7280', fontSize: 13, lineHeight: 1.6 },
-  input: {
-    width: '100%',
-    height: 56,
-    border: '2px solid #e5e7eb',
-    borderRadius: 14,
-    fontSize: 18,
-    outline: 'none',
-    padding: '0 20px',
-    textTransform: 'uppercase',
-    letterSpacing: 3,
-    boxSizing: 'border-box',
-    textAlign: 'center',
-    fontWeight: 600,
-    color: '#111827',
-  },
-  btn: {
-    marginTop: 12,
-    width: '100%',
-    height: 52,
-    background: BRAND,
-    color: '#fff',
-    border: 'none',
-    borderRadius: 12,
-    cursor: 'pointer',
-    fontSize: 15,
-    fontWeight: 600,
-  },
-  err: { marginTop: 10, color: '#DC2626', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 },
-  errIcon: { fontSize: 14 },
-  helper: { marginTop: 6, fontSize: 12, color: '#9ca3af', textAlign: 'center' },
-  bottomDivider: { height: 1, background: '#f3f4f6', margin: '22px 0 10px' },
-  bottomText: { fontSize: 12, color: '#6b7280', textAlign: 'center' },
-};
-
-function isValidCupCode(v) {
-  return /^CUP_\d+$/i.test(v);
-}
 
 export default function EnterCupPage() {
   const navigate = useNavigate();
   const [cupCode, setCupCode] = useState('');
-  const [error, setError] = useState('');
+  const [error,   setError]   = useState('');
   const [focused, setFocused] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const normalized = useMemo(() => cupCode.trim().toUpperCase(), [cupCode]);
 
-  const inputStyle = useMemo(() => {
-    if (!focused) return pageStyles.input;
-    return {
-      ...pageStyles.input,
-      borderColor: BRAND,
-      boxShadow: `0 0 0 4px ${BRAND_FOCUS}`,
-    };
-  }, [focused]);
-
-  useEffect(() => {
-    if (typeof document === 'undefined' || document.getElementById('tb-enter-cup')) return;
-    const el = document.createElement('style');
-    el.id = 'tb-enter-cup';
-    el.textContent = `
-      .tb-enter-btn:hover:not(:disabled){background:#235c42!important;transform:translateY(-1px)}
-      @keyframes tb-error-fade{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:translateY(0)}}
-      .tb-enter-error{animation:tb-error-fade .18s ease-out}
-    `;
-    document.head.appendChild(el);
-  }, []);
-
   const onSubmit = async () => {
     const v = normalized;
-    if (!v) {
-      setError('Please enter a cup code');
-      return;
-    }
-    if (!v.startsWith('CUP_')) {
-      setError('Invalid format. Try CUP_0042');
-      return;
-    }
-    setLoading(true);
-    setError('');
-
+    if (!v)              { setError('Please enter a cup code'); return; }
+    if (!v.startsWith('CUP_')) { setError('Invalid format — try CUP_0042'); return; }
+    setLoading(true); setError('');
     try {
       await getCup(v);
       navigate(`/borrow?cupId=${encodeURIComponent(v)}`);
     } catch (e) {
-      if (e.response?.status === 404) {
+      if (e.response?.status === 404)
         setError('Cup not found. Please check the code and try again.');
-      } else {
+      else
         setError(e.response?.data?.message || 'Something went wrong. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
+  const handleKey = (e) => { if (e.key === 'Enter') onSubmit(); };
+
   return (
-    <div style={pageStyles.page}>
-      <div style={pageStyles.card}>
-        <button style={pageStyles.backBtn} onClick={() => navigate('/')}>
-          ←
-        </button>
+    <>
+      <style>{`
+        @keyframes ec-fadein {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes ec-err {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
 
-        <div style={pageStyles.logoRow}>
-          <span style={pageStyles.logoEmoji}>🍃</span>
-          <span style={pageStyles.logoText}>Takeback</span>
-        </div>
-        <div style={pageStyles.tagline}>Borrow smart. Return kind.</div>
+        .ec-card {
+          animation: ec-fadein 0.4s ease both;
+        }
 
-        <div style={pageStyles.divider} />
+        .ec-back-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: none; border: none;
+          font-family: 'Inter', sans-serif; font-size: 13px;
+          color: #5a6b5e; cursor: pointer;
+          padding: 0; margin-bottom: 24px;
+          transition: color 0.15s;
+        }
+        .ec-back-btn:hover { color: #1c3a27; }
 
-        <h2 style={pageStyles.heading}>Enter Your Cup Code</h2>
-        <div style={pageStyles.sub}>
-          Find the 8-character code printed below the QR sticker on your cup
-        </div>
+        .ec-find-btn {
+          width: 100%; height: 52px;
+          background: #1c3a27; color: #fff;
+          border: none; border-radius: 14px;
+          font-family: 'Inter', sans-serif;
+          font-size: 15px; font-weight: 500;
+          cursor: pointer; margin-top: 16px;
+          transition: background 0.2s, transform 0.15s;
+        }
+        .ec-find-btn:hover:not(:disabled) {
+          background: #2d5a3d;
+          transform: translateY(-1px);
+        }
+        .ec-find-btn:disabled { opacity: 0.7; cursor: default; }
 
-        <input
-          style={inputStyle}
-          value={cupCode}
-          onChange={(e) => {
-            const next = e.target.value.toUpperCase();
-            setCupCode(next);
-            if (error) setError('');
-          }}
-          placeholder="e.g. CUP_0042"
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          inputMode="text"
-          aria-label="Cup code"
-        />
+        .ec-input::placeholder { color: rgba(28,58,39,0.3); }
 
-        {error && (
-          <div className="tb-enter-error" style={pageStyles.err}>
-            <span style={pageStyles.errIcon}>⚠️</span>
-            <span>{error}</span>
+        @media (max-width: 768px) {
+          .ec-card { padding: 28px !important; }
+        }
+        @media (max-width: 480px) {
+          .ec-card { margin: 16px; border-radius: 20px !important; }
+        }
+      `}</style>
+
+      <div style={s.page}>
+        <div className="ec-card" style={s.card}>
+
+          {/* ← Back */}
+          <button className="ec-back-btn" onClick={() => navigate('/')}>
+            <span style={{ fontSize: 16, lineHeight: 1 }}>←</span>
+            Back
+          </button>
+
+          {/* Logo */}
+          <div style={s.logoRow}>
+            <span style={s.logoTake}>Take</span>
+            <span style={s.logoBack}>back</span>
           </div>
-        )}
+          <p style={s.logoTagline}>Borrow smart. Return kind.</p>
 
-        <button
-          className="tb-enter-btn"
-          style={{ ...pageStyles.btn, opacity: loading ? 0.7 : 1 }}
-          onClick={onSubmit}
-          disabled={loading}
-        >
-          {loading ? 'Checking...' : 'Find This Cup'}
-        </button>
+          {/* Divider */}
+          <div style={s.divider} />
 
-        <div style={pageStyles.helper}>Cup codes are printed below the QR sticker</div>
+          {/* Heading */}
+          <h1 style={s.heading}>Enter Your Cup Code</h1>
+          <p style={s.subtext}>
+            Find the code printed below the QR sticker on your cup
+          </p>
 
-        <div style={pageStyles.bottomDivider} />
-        <div style={pageStyles.bottomText}>
-          Want to return a cup? Enter its code above
+          {/* Input */}
+          <input
+            className="ec-input"
+            style={{
+              ...s.input,
+              borderColor: focused ? '#4caf7d' : 'rgba(28,58,39,0.2)',
+              boxShadow:   focused ? '0 0 0 3px rgba(76,175,125,0.12)' : 'none',
+            }}
+            value={cupCode}
+            onChange={e => {
+              setCupCode(e.target.value.toUpperCase());
+              if (error) setError('');
+            }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={handleKey}
+            placeholder="CUP_0042"
+            inputMode="text"
+            autoComplete="off"
+            autoCapitalize="characters"
+            aria-label="Cup code"
+          />
+
+          {/* Error */}
+          {error && (
+            <div style={{ ...s.errorMsg, animation: 'ec-err 0.18s ease both' }}>
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Find button */}
+          <button
+            className="ec-find-btn"
+            onClick={onSubmit}
+            disabled={loading}
+          >
+            {loading ? 'Checking…' : 'Find This Cup'}
+          </button>
+
+          {/* Helper */}
+          <p style={s.helper}>Cup codes are printed below the QR sticker</p>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
+/* ── Styles ─────────────────────────────────────────── */
+const s = {
+  page: {
+    minHeight: '100vh',
+    background: '#f0ede6',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px',
+    boxSizing: 'border-box',
+    fontFamily: "'Inter', sans-serif",
+  },
+  card: {
+    background: '#ffffff',
+    borderRadius: 24,
+    padding: '48px 44px',
+    maxWidth: 440,
+    width: '100%',
+    boxSizing: 'border-box',
+    boxShadow: '0 8px 40px rgba(28,58,39,0.08)',
+  },
+
+  /* Two-tone logo */
+  logoRow: {
+    display: 'flex', alignItems: 'baseline', justifyContent: 'center',
+    gap: 0, marginBottom: 4,
+  },
+  logoTake: {
+    fontFamily: "'Playfair Display', serif",
+    fontWeight: 700, fontSize: 20, color: '#1c3a27',
+  },
+  logoBack: {
+    fontFamily: "'Playfair Display', serif",
+    fontWeight: 700, fontSize: 20, color: '#4caf7d',
+  },
+  logoTagline: {
+    margin: 0, textAlign: 'center',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 12, color: '#5a6b5e',
+  },
+
+  divider: {
+    height: 1, background: '#f0ede6',
+    margin: '18px 0',
+  },
+
+  heading: {
+    margin: '0 0 8px',
+    fontFamily: "'Playfair Display', serif",
+    fontWeight: 700, fontSize: 26,
+    color: '#1c3a27', textAlign: 'center',
+  },
+  subtext: {
+    margin: '0 0 28px',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 14, color: '#5a6b5e',
+    textAlign: 'center', lineHeight: 1.6,
+  },
+
+  input: {
+    width: '100%', height: 56,
+    border: '1.5px solid rgba(28,58,39,0.2)',
+    borderRadius: 14, outline: 'none',
+    padding: '0 20px', boxSizing: 'border-box',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 18, fontWeight: 600,
+    color: '#1c3a27',
+    textAlign: 'center',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    background: '#ffffff',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  },
+
+  errorMsg: {
+    display: 'flex', alignItems: 'center', gap: 6,
+    marginTop: 8,
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 13, color: '#dc2626',
+  },
+
+  helper: {
+    margin: '20px 0 0',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 12, color: '#5a6b5e',
+    textAlign: 'center',
+  },
+};

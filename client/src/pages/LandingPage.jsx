@@ -1,143 +1,648 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const BRAND = '#52B788';
+/* ─────────────────────────────────────────────────────
+   Collage card data — swap `bg` for a real <img> later
+───────────────────────────────────────────────────────*/
+const CARDS = [
+  {
+    bg: 'linear-gradient(145deg,#2d5a3d,#1c3a27)',
+    label: 'Borrow',
+    labelColor: '#fff',
+    offsetTop: 40,
+    height: 280,
+  },
+  {
+    bg: 'linear-gradient(145deg,#4caf7d,#2d5a3d)',
+    label: 'Return anywhere',
+    labelColor: '#fff',
+    offsetTop: 0,
+    height: 280,
+  },
+  {
+    bg: 'linear-gradient(145deg,#c8e6d0,#4caf7d)',
+    label: 'Community',
+    labelColor: '#1c3a27',
+    offsetTop: 0,
+    height: 260,
+  },
+  {
+    bg: 'linear-gradient(145deg,#1c3a27,#2d5a3d)',
+    label: 'Impact',
+    labelColor: '#fff',
+    offsetTop: 0,
+    height: 260,
+  },
+];
 
-const styles = {
-  page: {
-    minHeight: 'calc(100vh - 60px)',
-    display: 'flex',
-    flexDirection: 'column',
-    background: 'linear-gradient(135deg, #0f1f16 0%, #1a3a24 50%, #0f1f16 100%)',
-    fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-    color: '#fff',
-    padding: '0 16px',
-  },
-  heroWrap: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '44px 0 10px',
-  },
-  hero: { textAlign: 'center', width: '100%', maxWidth: 980 },
-  logo: { fontSize: 48, fontWeight: 800, margin: 0, letterSpacing: -0.5 },
-  tagline: { fontSize: 20, color: BRAND, marginTop: 14, letterSpacing: '1px', fontWeight: 700 },
-  subtext: {
-    margin: '16px auto 0',
-    fontSize: 16,
-    color: '#9ca3af',
-    maxWidth: 480,
-    lineHeight: 1.7,
-  },
-  pillsRow: {
-    marginTop: 22,
-    display: 'flex',
-    justifyContent: 'center',
-    gap: 12,
-    flexWrap: 'wrap',
-  },
-  pill: {
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: 20,
-    padding: '8px 18px',
-    fontSize: 13,
-    color: '#fff',
-    whiteSpace: 'nowrap',
-    fontWeight: 600,
-  },
-  ctaRow: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  ctaButton: { marginTop: 32, padding: '16px 36px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 16, fontWeight: 700, background: BRAND, color: '#0f1f16' },
-  ctaOutline: { marginTop: 12, padding: '16px 36px', borderRadius: 12, border: `1.5px solid ${BRAND}`, cursor: 'pointer', fontSize: 16, fontWeight: 700, background: 'transparent', color: BRAND },
-  welcome: { fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 12, opacity: 0.92 },
-  stepsWrap: { padding: '24px 0 18px' },
-  steps: { display: 'flex', gap: 32, justifyContent: 'center', flexWrap: 'wrap' },
-  step: { width: 260, textAlign: 'center' },
-  num: { width: 36, height: 36, borderRadius: '50%', border: `2px solid ${BRAND}`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, margin: '0 auto 12px' },
-  stepTitle: { fontSize: 14, fontWeight: 800, margin: 0, color: '#fff' },
-  stepDesc: { marginTop: 8, fontSize: 13, color: '#9ca3af', lineHeight: 1.6 },
-  bottomBar: { borderTop: '1px solid rgba(255,255,255,0.12)', padding: '14px 0 22px', display: 'flex', justifyContent: 'flex-end' },
-  adminPortal: { fontSize: 12, color: '#6b7280', fontWeight: 700, cursor: 'pointer', background: 'transparent', border: 'none', padding: 0 },
-};
+const STATS = ['10,000+ cups', '1,050+ members', 'Instant cashback'];
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (document.getElementById('tb-landing')) return;
-
-    const el = document.createElement('style');
-    el.id = 'tb-landing';
-    el.textContent = `
-      .tb-landing-cta{transition: background 0.15s ease, transform 0.15s ease;}
-      .tb-landing-cta:hover{background:#3d9e6e!important; transform: translateY(-2px);}
-      .tb-landing-outline{transition: border-color 0.15s ease, transform 0.15s ease, color 0.15s ease, background 0.15s ease;}
-      .tb-landing-outline:hover{transform: translateY(-2px); border-color:#3d9e6e!important; color:#3d9e6e!important;}
-      .tb-landing-admin:hover{color:${BRAND}!important;}
-    `;
-    document.head.appendChild(el);
-  }, []);
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.heroWrap}>
-        <div style={styles.hero}>
-          {user ? <div style={styles.welcome}>Welcome back, {user.name} 👋</div> : null}
-          <h1 style={styles.logo}>🍃 Takeback</h1>
-          <div style={styles.tagline}>Borrow smart. Return kind.</div>
-          <div style={styles.subtext}>
-            Join thousands of eco-conscious people reducing single-use cup waste one coffee at a time.
+    <>
+      {/* ── Scoped keyframes & responsive rules ─────── */}
+      <style>{`
+        @keyframes tb-pulse {
+          0%,100% { opacity: 1; }
+          50%      { opacity: 0.3; }
+        }
+        @keyframes tb-bounce {
+          0%,100% { transform: translateY(0); }
+          50%      { transform: translateY(6px); }
+        }
+        @keyframes tb-fadein {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .tb-hero-grid {
+          display: grid;
+          grid-template-columns: 55fr 45fr;
+          align-items: center;
+          gap: 48px;
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 100px 64px 60px;
+          animation: tb-fadein 0.6s ease both;
+        }
+
+        .tb-collage-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        .tb-collage-card {
+          border-radius: 20px;
+          overflow: hidden;
+          position: relative;
+          box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+          transition: transform 0.3s ease;
+          cursor: default;
+        }
+        .tb-collage-card:hover { transform: scale(1.02); }
+
+        .tb-card-label {
+          position: absolute;
+          bottom: 14px;
+          left: 14px;
+          font-family: 'Inter', sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          border-radius: 100px;
+          padding: 4px 12px;
+          background: rgba(0,0,0,0.3);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          white-space: nowrap;
+        }
+
+        .tb-nav-link-btn {
+          background: none; border: none; padding: 0;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px; font-weight: 500;
+          color: #1c3a27; cursor: pointer;
+          transition: opacity 0.2s;
+        }
+        .tb-nav-link-btn:hover { opacity: 0.65; }
+
+        /* ── Responsive ──────────────────────────── */
+        @media (max-width: 900px) {
+          .tb-hero-grid {
+            grid-template-columns: 1fr !important;
+            padding: 88px 24px 60px !important;
+            gap: 36px !important;
+          }
+          .tb-hero-text { text-align: center; align-items: center !important; }
+          .tb-hero-text .tb-subtext { max-width: 100% !important; }
+          .tb-hero-text .tb-btn-row { justify-content: center !important; }
+          .tb-hero-text .tb-stats-row { justify-content: center !important; }
+          .tb-collage-wrap { order: -1; }
+          .tb-collage-grid { height: 320px !important; }
+          .tb-collage-card { height: auto !important; margin-top: 0 !important; }
+        }
+
+        @media (max-width: 480px) {
+          .tb-headline { font-size: clamp(44px,12vw,60px) !important; }
+          .tb-collage-grid { height: 260px !important; }
+        }
+
+        /* ── Steps section ── */
+        .tb-steps-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 32px;
+          max-width: 900px;
+          margin: 0 auto;
+        }
+        @media (max-width: 640px) {
+          .tb-steps-grid { grid-template-columns: 1fr; gap: 24px; }
+        }
+      `}</style>
+
+      <div style={s.page}>
+
+        {/* ══════════════════════════════════════════
+            HERO SECTION
+        ══════════════════════════════════════════ */}
+        <section style={s.heroSection}>
+          <div className="tb-hero-grid">
+
+            {/* ── LEFT: Text ── */}
+            <div
+              className="tb-hero-text"
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
+            >
+              {/* Badge pill */}
+              <div style={s.badgePill}>
+                <span style={s.badgeDot} />
+                INDIA'S REUSABLE CUP MOVEMENT
+              </div>
+
+              {/* Headline */}
+              <h1 className="tb-headline" style={s.headline}>
+                <span style={s.hlNormal}>Borrow</span><br />
+                <span style={s.hlItalic}>a cup.</span><br />
+                <span style={s.hlNormal}>Return</span><br />
+                <span style={s.hlNormal}>kind.</span>
+              </h1>
+
+              {/* Subtext */}
+              <p className="tb-subtext" style={s.subtext}>
+                Borrow a reusable cup, enjoy your drink, and return it at any
+                partner location across India. No app needed — just scan and go.
+              </p>
+
+              {/* CTA buttons */}
+              <div className="tb-btn-row" style={s.btnRow}>
+                <button
+                  className="btn-primary"
+                  onClick={() => scrollToSection('how-it-works')}
+                >
+                  See how it works →
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => navigate('/enter-cup')}
+                >
+                  Connect with us
+                </button>
+              </div>
+
+              {/* Stat pills */}
+              <div className="tb-stats-row" style={s.statsRow}>
+                {STATS.map(stat => (
+                  <span key={stat} style={s.statPill}>{stat}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* ── RIGHT: Photo collage ── */}
+            <div className="tb-collage-wrap">
+              <div className="tb-collage-grid">
+                {CARDS.map((card, i) => (
+                  <div
+                    key={i}
+                    className="tb-collage-card"
+                    style={{
+                      background: card.bg,
+                      height: card.height,
+                      marginTop: card.offsetTop,
+                    }}
+                  >
+                    {/* Swap children for <img> when real photos are available */}
+                    <span
+                      className="tb-card-label"
+                      style={{ color: card.labelColor }}
+                    >
+                      {card.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div style={styles.pillsRow}>
-            <div style={styles.pill}>🥤 6,300+ Cups in circulation</div>
-            <div style={styles.pill}>♻️ 3,000+ Returns completed</div>
-            <div style={styles.pill}>👥 1,000+ Members</div>
+          {/* Scroll indicator */}
+          <div
+            style={s.scrollIndicator}
+            onClick={() => scrollToSection('how-it-works')}
+            role="button"
+            tabIndex={0}
+            aria-label="Scroll down"
+            onKeyDown={e => e.key === 'Enter' && scrollToSection('how-it-works')}
+          >
+            <span style={s.scrollLabel}>SCROLL</span>
+            <svg
+              width="16" height="16" viewBox="0 0 16 16" fill="none"
+              style={s.scrollArrow}
+              aria-hidden="true"
+            >
+              <path
+                d="M8 3v10M3 8l5 5 5-5"
+                stroke="#5a6b5e" strokeWidth="1.5"
+                strokeLinecap="round" strokeLinejoin="round"
+              />
+            </svg>
           </div>
+        </section>
 
-          <div style={styles.ctaRow}>
-            <button className="tb-landing-cta" style={styles.ctaButton} onClick={() => navigate('/enter-cup')}>
-              {user ? 'Borrow a Cup →' : 'Enter Cup Code to Borrow →'}
-            </button>
-            {user ? (
-              <button className="tb-landing-outline" style={styles.ctaOutline} onClick={() => navigate('/enter-cup')}>
-                View My Wallet (Rs. {user.wallet}) 
+        {/* ══════════════════════════════════════════
+            HOW IT WORKS
+        ══════════════════════════════════════════ */}
+        <section id="how-it-works" style={s.section}>
+          <div style={s.sectionInner}>
+            <span className="overline" style={{ textAlign: 'center', display: 'block' }}>
+              How it works
+            </span>
+            <h2 className="section-heading" style={{ textAlign: 'center', marginBottom: 48 }}>
+              Three simple steps
+            </h2>
+            <div className="tb-steps-grid">
+              {[
+                {
+                  n: '01', title: 'Scan the QR',
+                  desc: 'Scan the QR code printed on any Takeback cup at a partner café.',
+                },
+                {
+                  n: '02', title: 'Borrow & enjoy',
+                  desc: 'A ₹150 deposit is held in your Takeback wallet. Enjoy your drink.',
+                },
+                {
+                  n: '03', title: 'Return & earn',
+                  desc: 'Drop any Takeback cup at any partner location and get ₹50 cashback.',
+                },
+              ].map(step => (
+                <div key={step.n} style={s.stepCard}>
+                  <div style={s.stepNum}>{step.n}</div>
+                  <h3 style={s.stepTitle}>{step.title}</h3>
+                  <p style={s.stepDesc}>{step.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════
+            OUR IMPACT
+        ══════════════════════════════════════════ */}
+        <section id="our-impact" style={{ ...s.section, background: '#1e3d2a' }}>
+          <div style={s.sectionInner}>
+            <span className="overline" style={{ textAlign: 'center', display: 'block', color: '#4caf7d' }}>
+              Our impact
+            </span>
+            <h2
+              className="section-heading"
+              style={{ textAlign: 'center', color: '#fff', marginBottom: 48 }}
+            >
+              Every cup counts
+            </h2>
+            <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {[
+                { val: '10,000+', label: 'Cups in circulation' },
+                { val: '1,050+',  label: 'Active members' },
+                { val: '30,000+', label: 'Single-use cups saved' },
+                { val: '₹50',     label: 'Cashback per return' },
+              ].map(stat => (
+                <div key={stat.label} style={s.impactCard}>
+                  <div style={s.impactVal}>{stat.val}</div>
+                  <div style={s.impactLabel}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════
+            WHY TAKEBACK
+        ══════════════════════════════════════════ */}
+        <section id="why-takeback" style={s.section}>
+          <div style={s.sectionInner}>
+            <span className="overline" style={{ textAlign: 'center', display: 'block' }}>
+              Why Takeback
+            </span>
+            <h2 className="section-heading" style={{ textAlign: 'center', marginBottom: 48 }}>
+              Built for the planet
+            </h2>
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {[
+                { icon: '♻️', title: 'Zero waste', body: 'Every cup is washed and reused. No landfill, no oceans.' },
+                { icon: '💳', title: 'Reward loop', body: 'Return a cup anywhere — even one that isn\'t yours — and earn ₹50.' },
+                { icon: '🌿', title: 'No app needed', body: 'Just scan the QR on the cup with any camera. That\'s it.' },
+                { icon: '🤝', title: 'Café-first', body: 'Partnered with cafés across India who share our values.' },
+              ].map(f => (
+                <div key={f.title} style={s.featureCard}>
+                  <span style={s.featureIcon}>{f.icon}</span>
+                  <h3 style={s.featureTitle}>{f.title}</h3>
+                  <p style={s.featureBody}>{f.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════
+            COMMUNITY
+        ══════════════════════════════════════════ */}
+        <section id="community" style={{ ...s.section, background: '#f5f2eb' }}>
+          <div style={s.sectionInner}>
+            <span className="overline" style={{ textAlign: 'center', display: 'block' }}>
+              Community
+            </span>
+            <h2 className="section-heading" style={{ textAlign: 'center', marginBottom: 20 }}>
+              Join 1,050+ members
+            </h2>
+            <p style={{ ...s.subtext, textAlign: 'center', margin: '0 auto 36px', maxWidth: 520 }}>
+              Takeback members span cafés, colleges, and coworking spaces across India.
+              Every return makes a difference.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <button className="btn-primary" onClick={() => navigate('/enter-cup')}>
+                Start borrowing →
               </button>
-            ) : null}
+              <button
+                className="btn-secondary"
+                onClick={() => navigate('/enter-cup')}
+              >
+                Return a cup
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div style={styles.stepsWrap}>
-        <div style={styles.steps}>
-          <div style={styles.step}>
-            <div style={styles.num}>1</div>
-            <p style={styles.stepTitle}>Scan QR</p>
-            <div style={styles.stepDesc}>Scan the QR code on any Takeback cup</div>
-          </div>
-          <div style={styles.step}>
-            <div style={styles.num}>2</div>
-            <p style={styles.stepTitle}>Borrow</p>
-            <div style={styles.stepDesc}>Pay Rs.150 from your wallet, enjoy your drink</div>
-          </div>
-          <div style={styles.step}>
-            <div style={styles.num}>3</div>
-            <p style={styles.stepTitle}>Return &amp; Earn</p>
-            <div style={styles.stepDesc}>Return any cup, get Rs.50 cashback</div>
-          </div>
-        </div>
+        {/* ══════════════════════════════════════════
+            FOOTER BAR
+        ══════════════════════════════════════════ */}
+        <footer style={s.footer}>
+          <span style={s.footerLogo}>
+            <span style={{ color: '#1c3a27' }}>Take</span>
+            <span style={{ color: '#4caf7d' }}>back</span>
+          </span>
+          <span style={s.footerText}>© 2025 Takeback. India's reusable cup movement.</span>
+          <button
+            style={s.adminPortal}
+            onClick={() => navigate('/admin')}
+            onMouseEnter={e => e.currentTarget.style.color = '#4caf7d'}
+            onMouseLeave={e => e.currentTarget.style.color = '#5a6b5e'}
+          >
+            Admin →
+          </button>
+        </footer>
       </div>
-
-      <div style={styles.bottomBar}>
-        <button className="tb-landing-admin" style={styles.adminPortal} onClick={() => navigate('/admin')}>
-          Admin Portal →
-        </button>
-      </div>
-    </div>
+    </>
   );
 }
 
+/* ── Styles ──────────────────────────────────────────── */
+const s = {
+  page: {
+    background: '#f0ede6',
+    fontFamily: "'Inter', sans-serif",
+    color: '#1c3a27',
+    overflowX: 'hidden',
+  },
+
+  /* Hero */
+  heroSection: {
+    background: '#f0ede6',
+    position: 'relative',
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+
+  /* Badge pill */
+  badgePill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    background: '#c8e6d0',
+    color: '#2d5a3d',
+    borderRadius: 100,
+    padding: '5px 14px',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 11,
+    fontWeight: 500,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase',
+    marginBottom: 28,
+    whiteSpace: 'nowrap',
+  },
+  badgeDot: {
+    display: 'inline-block',
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    background: '#4caf7d',
+    flexShrink: 0,
+    animation: 'tb-pulse 2s infinite',
+  },
+
+  /* Headline */
+  headline: {
+    fontFamily: "'Playfair Display', serif",
+    fontWeight: 700,
+    fontSize: 'clamp(56px,7vw,92px)',
+    lineHeight: 0.92,
+    letterSpacing: '-2px',
+    marginBottom: 24,
+    margin: '0 0 24px',
+  },
+  hlNormal: { color: '#1c3a27', fontStyle: 'normal', display: 'block' },
+  hlItalic: { color: '#4caf7d', fontStyle: 'italic', display: 'block' },
+
+  /* Sub text */
+  subtext: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 16,
+    fontWeight: 400,
+    color: '#5a6b5e',
+    maxWidth: 400,
+    lineHeight: 1.7,
+    marginBottom: 36,
+    margin: '0 0 36px',
+  },
+
+  /* Buttons */
+  btnRow: {
+    display: 'flex',
+    gap: 14,
+    flexWrap: 'wrap',
+    marginBottom: 28,
+  },
+
+  /* Stat pills */
+  statsRow: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginTop: 28,
+  },
+  statPill: {
+    background: '#c8e6d0',
+    color: '#2d5a3d',
+    borderRadius: 100,
+    padding: '5px 14px',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 13,
+    fontWeight: 500,
+    whiteSpace: 'nowrap',
+  },
+
+  /* Scroll indicator */
+  scrollIndicator: {
+    position: 'absolute',
+    bottom: 32,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 6,
+    opacity: 0.5,
+    cursor: 'pointer',
+    transition: 'opacity 0.2s',
+    userSelect: 'none',
+  },
+  scrollLabel: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 11,
+    color: '#5a6b5e',
+    letterSpacing: '2px',
+    textTransform: 'uppercase',
+  },
+  scrollArrow: {
+    animation: 'tb-bounce 1.6s ease-in-out infinite',
+  },
+
+  /* Generic section */
+  section: {
+    background: '#f0ede6',
+    padding: '96px 24px',
+  },
+  sectionInner: {
+    maxWidth: 1100,
+    margin: '0 auto',
+  },
+
+  /* Steps */
+  stepCard: {
+    background: '#fff',
+    borderRadius: 20,
+    padding: '32px 28px',
+    boxShadow: '0 4px 20px rgba(28,58,39,0.06)',
+  },
+  stepNum: {
+    fontFamily: "'Playfair Display', serif",
+    fontSize: 40,
+    fontWeight: 700,
+    color: '#c8e6d0',
+    lineHeight: 1,
+    marginBottom: 16,
+  },
+  stepTitle: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 18,
+    fontWeight: 600,
+    color: '#1c3a27',
+    margin: '0 0 10px',
+  },
+  stepDesc: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 14,
+    color: '#5a6b5e',
+    lineHeight: 1.65,
+    margin: 0,
+  },
+
+  /* Impact */
+  impactCard: {
+    background: 'rgba(255,255,255,0.06)',
+    borderRadius: 20,
+    padding: '32px 36px',
+    textAlign: 'center',
+    minWidth: 180,
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  impactVal: {
+    fontFamily: "'Playfair Display', serif",
+    fontSize: 48,
+    fontWeight: 700,
+    color: '#4caf7d',
+    lineHeight: 1,
+    marginBottom: 8,
+  },
+  impactLabel: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 14,
+    fontWeight: 400,
+    color: 'rgba(255,255,255,0.65)',
+  },
+
+  /* Why Takeback features */
+  featureCard: {
+    background: '#fff',
+    borderRadius: 20,
+    padding: '28px 24px',
+    maxWidth: 240,
+    boxShadow: '0 4px 20px rgba(28,58,39,0.06)',
+    flex: '1 1 200px',
+  },
+  featureIcon: { fontSize: 28, display: 'block', marginBottom: 14 },
+  featureTitle: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 16,
+    fontWeight: 600,
+    color: '#1c3a27',
+    margin: '0 0 8px',
+  },
+  featureBody: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 13,
+    color: '#5a6b5e',
+    lineHeight: 1.6,
+    margin: 0,
+  },
+
+  /* Footer */
+  footer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '20px 48px',
+    background: '#f0ede6',
+    borderTop: '1px solid rgba(28,58,39,0.1)',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  footerLogo: {
+    fontFamily: "'Playfair Display', serif",
+    fontWeight: 700,
+    fontSize: 18,
+  },
+  footerText: {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 12,
+    color: '#5a6b5e',
+  },
+  adminPortal: {
+    fontSize: 12,
+    color: '#5a6b5e',
+    fontWeight: 500,
+    cursor: 'pointer',
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    transition: 'color 0.15s',
+    fontFamily: "'Inter', sans-serif",
+  },
+};
