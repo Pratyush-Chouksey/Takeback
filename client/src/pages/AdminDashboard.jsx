@@ -70,7 +70,7 @@ const STAT_ACCENT = {
 
 export default function AdminDashboard() {
   const [tab, setTab]               = useState('overview');
-  const [stats, setStats]           = useState(null);
+  const [stats, setStats]           = useState({ total: 0, available: 0, borrowed: 0, pending: 0 });
   const [cups, setCups]             = useState([]);
   const [users, setUsers]           = useState([]);
   const [txns, setTxns]             = useState([]);
@@ -83,13 +83,21 @@ export default function AdminDashboard() {
   const load = async (t) => {
     setLoading(true); setError('');
     try {
-      if (t === 'overview') { const r = await getCupStats(); setStats(r.data.stats); }
-      else if (t === 'cups') {
+      if (t === 'overview') {
+        const [sr, tr] = await Promise.all([getCupStats(), getAdminTransactions()]);
+        setStats(sr.data.stats);
+        setTxns(tr.data.transactions);
+      } else if (t === 'cups') {
         const [cr, sr] = await Promise.all([getAdminCups(), getCupStats()]);
         setCups(cr.data.cups); setStats(sr.data.stats);
-      } else if (t === 'users') { const r = await getAdminUsers(); setUsers(r.data.users); }
-      else { const r = await getAdminTransactions(); setTxns(r.data.transactions); }
-    } catch (e) { setError(e.response?.data?.message || 'Failed to load'); }
+      } else if (t === 'users') {
+        const r = await getAdminUsers(); setUsers(r.data.users);
+      } else {
+        const r = await getAdminTransactions(); setTxns(r.data.transactions);
+      }
+    } catch (e) {
+      setError(e.response?.data?.message || 'Could not connect to server. Check your connection.');
+    }
     finally { setLoading(false); }
   };
 
@@ -122,7 +130,7 @@ export default function AdminDashboard() {
   return (
     <>
       <style>{CSS}</style>
-      <div style={{display:'flex',height:'100vh',overflow:'hidden',fontFamily:"'Inter',sans-serif",background:'#f0ede6'}}>
+      <div style={{display:'flex',height:'100vh',minHeight:'100vh',overflow:'hidden',fontFamily:"'Inter',sans-serif",background:'#f0ede6',position:'relative'}}>
 
         {/* ── Sidebar ── */}
         <aside className="ad-sidebar" style={{width:256,minWidth:256,background:'#1c3a27',display:'flex',flexDirection:'column',height:'100vh',boxSizing:'border-box',flexShrink:0,transition:'width 0.2s'}}>
@@ -170,11 +178,15 @@ export default function AdminDashboard() {
           </div>
 
           {/* Content */}
-          <div className="ad-content-area" style={{flex:1,overflowY:'auto',padding:'32px 36px',paddingBottom:72}}>
-            {error && <div style={{padding:'10px 16px',background:'#fef2f2',color:'#dc2626',borderRadius:10,fontSize:14,marginBottom:20,border:'1px solid #fecaca'}}>{error}</div>}
+          <div className="ad-content-area" style={{flex:1,overflowY:'auto',background:'#f0ede6',padding:'32px 36px',paddingBottom:72}}>
+            {error && (
+              <div style={{padding:'16px 20px',background:'#fef2f2',color:'#dc2626',borderRadius:12,fontSize:14,marginBottom:24,border:'1px solid #fecaca',fontFamily:"'Inter',sans-serif",lineHeight:1.6}}>
+                ⚠️ {error}
+              </div>
+            )}
             {loading ? <SkeletonGrid /> : (
               <>
-                {tab==='overview'     && <Overview stats={stats} txns={txns} fmtDate={fmtDate} loadTxns={() => getAdminTransactions().then(r => setTxns(r.data.transactions))} />}
+                {tab==='overview'     && <Overview stats={stats} txns={txns} fmtDate={fmtDate} />}
                 {tab==='cups'         && <Cups cups={filtered} filter={cupFilter} setFilter={setCupFilter} verify={verify} openConfirm={setConfirmCup} fmt={fmtDate} stats={stats} />}
                 {tab==='users'        && <Users users={users} fmt={fmtShort} />}
                 {tab==='transactions' && <TxnsTable txns={txns} fmt={fmtDate} />}
@@ -215,9 +227,7 @@ export default function AdminDashboard() {
 }
 
 /* ── Overview ── */
-function Overview({ stats, txns, fmtDate, loadTxns }) {
-  useEffect(() => { if (!txns.length) loadTxns(); }, []);
-  if (!stats) return null;
+function Overview({ stats, txns, fmtDate }) {
   const cards = [
     { label:'Total Cups',  val:stats.total,     icon:'🥤', sub:'in circulation' },
     { label:'Available',   val:stats.available,  icon:'✅', sub:'ready to borrow' },

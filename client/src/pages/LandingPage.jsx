@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -37,14 +38,23 @@ const CARDS = [
 
 const STATS = ['10,000+ cups', '1,050+ members', 'Instant cashback'];
 
+const APP_URL = 'https://takeback-nine.vercel.app/enter-cup';
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [showSticky, setShowSticky] = useState(false);
 
   const scrollToSection = (id) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  useEffect(() => {
+    const onScroll = () => setShowSticky(window.scrollY > 600);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <>
@@ -133,6 +143,50 @@ export default function LandingPage() {
         @media (max-width: 480px) {
           .tb-headline { font-size: clamp(44px,12vw,60px) !important; }
           .tb-collage-grid { height: 260px !important; }
+          .tb-sticky-cta { display: none !important; }
+        }
+
+        /* Start Borrowing primary button */
+        .tb-start-btn {
+          background: #1c3a27;
+          color: #fff;
+          border: none;
+          border-radius: 100px;
+          padding: 14px 32px;
+          font-family: 'Inter', sans-serif;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+          white-space: nowrap;
+        }
+        .tb-start-btn:hover {
+          background: #2d5a3d;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(28,58,39,0.2);
+        }
+
+        /* Sticky floating CTA */
+        .tb-sticky-cta {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          z-index: 50;
+          background: #1c3a27;
+          color: #fff;
+          border: none;
+          border-radius: 100px;
+          padding: 12px 24px;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          box-shadow: 0 8px 24px rgba(28,58,39,0.25);
+          transition: opacity 0.3s ease, transform 0.2s ease, background 0.2s;
+        }
+        .tb-sticky-cta:hover {
+          background: #2d5a3d;
+          transform: translateY(-2px);
         }
 
         /* ── Steps section ── */
@@ -183,19 +237,27 @@ export default function LandingPage() {
 
               {/* CTA buttons */}
               <div className="tb-btn-row" style={s.btnRow}>
-                <button
-                  className="btn-primary"
-                  onClick={() => scrollToSection('how-it-works')}
+                <a
+                  className="tb-start-btn"
+                  href={APP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  See how it works →
-                </button>
+                  Start Borrowing →
+                </a>
                 <button
                   className="btn-secondary"
-                  onClick={() => navigate('/enter-cup')}
+                  onClick={() => scrollToSection('community')}
+                  style={{ fontSize: 14, fontWeight: 500 }}
                 >
                   Connect with us
                 </button>
               </div>
+
+              {/* Reassurance line */}
+              <p style={s.reassurance}>
+                No app needed&nbsp;·&nbsp;Sign in with Google&nbsp;·&nbsp;Instant cashback
+              </p>
 
               {/* Stat pills */}
               <div className="tb-stats-row" style={s.statsRow}>
@@ -254,6 +316,18 @@ export default function LandingPage() {
             </svg>
           </div>
         </section>
+
+        {/* ── Sticky floating CTA ── */}
+        <a
+          className="tb-sticky-cta"
+          href={APP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Start Borrowing"
+          style={{ opacity: showSticky ? 1 : 0, pointerEvents: showSticky ? 'all' : 'none' }}
+        >
+          Start Borrowing →
+        </a>
 
         {/* ══════════════════════════════════════════
             HOW IT WORKS
@@ -478,6 +552,15 @@ const s = {
     gap: 14,
     flexWrap: 'wrap',
     marginBottom: 28,
+  },
+
+  /* Reassurance line */
+  reassurance: {
+    margin: '12px 0 0',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 12,
+    color: '#5a6b5e',
+    lineHeight: 1.5,
   },
 
   /* Stat pills */
