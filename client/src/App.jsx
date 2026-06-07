@@ -9,16 +9,23 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 export default function App() {
   return (
-    <>
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/enter-cup" element={<EnterCupPage />} />
-        <Route path="/borrow" element={<ProtectedRoute><BorrowPage /></ProtectedRoute>} />
-        <Route path="/return" element={<ProtectedRoute><ReturnPage /></ProtectedRoute>} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </>
+    <Routes>
+      {/* Admin gets its own full-screen layout — no shared Navbar */}
+      <Route path="/admin" element={<AdminDashboard />} />
+
+      {/* All other routes share the Navbar shell */}
+      <Route path="/*" element={
+        <>
+          <Navbar />
+          <Routes>
+            <Route path="/"          element={<LandingPage />} />
+            <Route path="/enter-cup" element={<EnterCupPage />} />
+            <Route path="/borrow"    element={<ProtectedRoute><BorrowPage /></ProtectedRoute>} />
+            <Route path="/return"    element={<ProtectedRoute><ReturnPage /></ProtectedRoute>} />
+            <Route path="*"          element={<Navigate to="/" replace />} />
+          </Routes>
+        </>
+      } />
+    </Routes>
   );
 }
