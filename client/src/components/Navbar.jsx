@@ -44,6 +44,24 @@ export default function Navbar() {
     <>
       {/* ── Scoped CSS ─────────────────────────────── */}
       <style>{`
+        /* ── Navbar shell ── */
+        .tb-nav {
+          position: sticky; top: 0; z-index: 100;
+          display: flex; align-items: center; justify-content: space-between;
+          height: 72px;
+          padding: 0 48px;
+          background: #ffffff;
+          border-bottom: 1px solid rgba(28,58,39,0.08);
+          box-sizing: border-box;
+          font-family: 'Inter', sans-serif;
+        }
+        @media (max-width: 768px) {
+          .tb-nav { padding: 0 20px; height: 68px; }
+        }
+        @media (max-width: 480px) {
+          .tb-nav { padding: 0 16px; height: 64px; }
+        }
+
         .tb-center-links { display: flex; }
         .tb-cta-btn      { display: inline-flex; }
         .tb-burger       { display: none; }
@@ -52,6 +70,8 @@ export default function Navbar() {
           .tb-center-links { display: none !important; }
           .tb-cta-btn      { display: none !important; }
           .tb-burger       { display: flex !important; }
+          .tb-user-right   { gap: 8px !important; }
+          .tb-user-name    { display: none !important; }
         }
 
         .tb-navlink {
@@ -101,12 +121,13 @@ export default function Navbar() {
           font-size: 12px; font-weight: 500;
           cursor: pointer; transition: all 0.15s;
           font-family: 'Inter', sans-serif;
+          white-space: nowrap;
         }
         .tb-logout-btn:hover { border-color: #dc2626; color: #dc2626; }
       `}</style>
 
       {/* ── Navbar bar ─────────────────────────────── */}
-      <header style={st.nav}>
+      <header className="tb-nav">
 
         {/* Logo */}
         <span
@@ -135,7 +156,7 @@ export default function Navbar() {
         )}
 
         {/* Right slot */}
-        <div style={st.right}>
+        <div className="tb-user-right" style={st.right}>
           {isAppPage && user ? (
             /* User session controls */
             <>
@@ -239,13 +260,6 @@ export default function Navbar() {
 /* ── Static style objects ───────────────────────────── */
 const st = {
   nav: {
-    position: 'sticky', top: 0, zIndex: 100,
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    height: 60,
-    padding: '0 48px',
-    background: '#ffffff',
-    borderBottom: '1px solid rgba(28,58,39,0.08)',
-    boxSizing: 'border-box',
     fontFamily: "'Inter', sans-serif",
   },
 

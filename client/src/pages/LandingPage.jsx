@@ -200,6 +200,21 @@ export default function LandingPage() {
         @media (max-width: 640px) {
           .tb-steps-grid { grid-template-columns: 1fr; gap: 24px; }
         }
+
+        /* ── Section responsive ── */
+        @media (max-width: 768px) {
+          .tb-section     { padding: 64px 20px !important; }
+          .tb-btn-row     { flex-wrap: wrap !important; justify-content: center !important; }
+          .tb-start-btn   { width: 100%; text-align: center; }
+          .tb-impact-row  { gap: 12px !important; }
+          .tb-feature-row { gap: 16px !important; }
+        }
+        @media (max-width: 480px) {
+          .tb-section    { padding: 48px 16px !important; }
+          .tb-steps-grid { padding: 0; }
+          .tb-impact-card { padding: 20px 16px !important; min-width: 130px !important; }
+          .tb-feature-card { min-width: 140px !important; padding: 20px !important; }
+        }
       `}</style>
 
       <div style={s.page}>
@@ -332,7 +347,7 @@ export default function LandingPage() {
         {/* ══════════════════════════════════════════
             HOW IT WORKS
         ══════════════════════════════════════════ */}
-        <section id="how-it-works" style={s.section}>
+        <section id="how-it-works" className="tb-section" style={s.section}>
           <div style={s.sectionInner}>
             <span className="overline" style={{ textAlign: 'center', display: 'block' }}>
               How it works
@@ -368,7 +383,7 @@ export default function LandingPage() {
         {/* ══════════════════════════════════════════
             OUR IMPACT
         ══════════════════════════════════════════ */}
-        <section id="our-impact" style={{ ...s.section, background: '#1e3d2a' }}>
+        <section id="our-impact" className="tb-section" style={{ ...s.section, background: '#1e3d2a' }}>
           <div style={s.sectionInner}>
             <span className="overline" style={{ textAlign: 'center', display: 'block', color: '#4caf7d' }}>
               Our impact
@@ -379,14 +394,14 @@ export default function LandingPage() {
             >
               Every cup counts
             </h2>
-            <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div className="tb-impact-row" style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
               {[
                 { val: '10,000+', label: 'Cups in circulation' },
                 { val: '1,050+',  label: 'Active members' },
                 { val: '30,000+', label: 'Single-use cups saved' },
                 { val: '₹50',     label: 'Cashback per return' },
               ].map(stat => (
-                <div key={stat.label} style={s.impactCard}>
+                <div key={stat.label} className="tb-impact-card" style={s.impactCard}>
                   <div style={s.impactVal}>{stat.val}</div>
                   <div style={s.impactLabel}>{stat.label}</div>
                 </div>
@@ -398,7 +413,7 @@ export default function LandingPage() {
         {/* ══════════════════════════════════════════
             WHY TAKEBACK
         ══════════════════════════════════════════ */}
-        <section id="why-takeback" style={s.section}>
+        <section id="why-takeback" className="tb-section" style={s.section}>
           <div style={s.sectionInner}>
             <span className="overline" style={{ textAlign: 'center', display: 'block' }}>
               Why Takeback
@@ -413,7 +428,7 @@ export default function LandingPage() {
                 { icon: '🌿', title: 'No app needed', body: 'Just scan the QR on the cup with any camera. That\'s it.' },
                 { icon: '🤝', title: 'Café-first', body: 'Partnered with cafés across India who share our values.' },
               ].map(f => (
-                <div key={f.title} style={s.featureCard}>
+                <div key={f.title} className="tb-feature-card" style={s.featureCard}>
                   <span style={s.featureIcon}>{f.icon}</span>
                   <h3 style={s.featureTitle}>{f.title}</h3>
                   <p style={s.featureBody}>{f.body}</p>
@@ -426,7 +441,7 @@ export default function LandingPage() {
         {/* ══════════════════════════════════════════
             COMMUNITY
         ══════════════════════════════════════════ */}
-        <section id="community" style={{ ...s.section, background: '#f5f2eb' }}>
+        <section id="community" className="tb-section" style={{ ...s.section, background: '#f5f2eb' }}>
           <div style={s.sectionInner}>
             <span className="overline" style={{ textAlign: 'center', display: 'block' }}>
               Community
