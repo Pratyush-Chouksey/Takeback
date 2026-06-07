@@ -421,7 +421,7 @@ export default function LandingPage() {
             <h2 className="section-heading" style={{ textAlign: 'center', marginBottom: 48 }}>
               Built for the planet
             </h2>
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div className="tb-feature-row" style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
               {[
                 { icon: '♻️', title: 'Zero waste', body: 'Every cup is washed and reused. No landfill, no oceans.' },
                 { icon: '💳', title: 'Reward loop', body: 'Return a cup anywhere — even one that isn\'t yours — and earn ₹50.' },

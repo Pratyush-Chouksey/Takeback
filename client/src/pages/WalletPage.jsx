@@ -6,6 +6,17 @@ import api from '../api';
 const IS_DEV = import.meta.env.VITE_RAZORPAY_KEY_ID === 'rzp_test_placeholder';
 const AMOUNTS = [100, 200, 500];
 
+const WALLET_CSS = `
+  @media (max-width: 480px) {
+    .wlt-card { padding: 28px 20px !important; border-radius: 20px !important; }
+    .wlt-amount-btn { font-size: 15px !important; padding: 13px 0 !important; }
+    .wlt-pay-btn { font-size: 14px !important; }
+  }
+  @media (max-width: 360px) {
+    .wlt-card { padding: 20px 14px !important; }
+  }
+`;
+
 export default function WalletPage() {
   const navigate = useNavigate();
   const { user, updateWallet } = useAuth();
@@ -84,7 +95,8 @@ export default function WalletPage() {
   /* ── SUCCESS STATE ── */
   if (success) return (
     <div style={page}>
-      <div style={card}>
+      <style>{WALLET_CSS}</style>
+      <div className="wlt-card" style={card}>
         {/* ✓ circle */}
         <div style={{ width:60, height:60, borderRadius:'50%', background:'#1c3a27', display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, color:'#fff', margin:'0 auto 20px' }}>✓</div>
         <h2 style={{ fontFamily:"'Playfair Display',serif", fontWeight:700, fontSize:22, color:'#1c3a27', textAlign:'center', margin:'0 0 8px' }}>Payment Successful!</h2>
@@ -113,7 +125,8 @@ export default function WalletPage() {
 
   return (
     <div style={page}>
-      <div style={card}>
+      <style>{WALLET_CSS}</style>
+      <div className="wlt-card" style={card}>
         {/* Back */}
         <button onClick={() => navigate(-1)} style={{ background:'none', border:'none', fontSize:13, color:'#5a6b5e', cursor:'pointer', padding:0, marginBottom:24, display:'flex', alignItems:'center', gap:6, fontFamily:"'Inter',sans-serif" }}>
           ← Back
@@ -143,6 +156,7 @@ export default function WalletPage() {
           {AMOUNTS.map(amt => (
             <button
               key={amt}
+              className="wlt-amount-btn"
               onClick={() => setSelected(amt)}
               style={{
                 flex:1, padding:'16px 0', borderRadius:14, cursor:'pointer',
@@ -182,6 +196,7 @@ export default function WalletPage() {
 
         {/* Pay button */}
         <button
+          className="wlt-pay-btn"
           onClick={handleRecharge}
           disabled={loading}
           style={{
