@@ -48,18 +48,20 @@ export default function Navbar() {
         .tb-nav {
           position: sticky; top: 0; z-index: 100;
           display: flex; align-items: center; justify-content: space-between;
-          height: 72px;
-          padding: 0 48px;
+          height: 80px;
+          min-height: 80px;
+          flex-shrink: 0;
+          padding: 0 52px;
           background: #ffffff;
           border-bottom: 1px solid rgba(28,58,39,0.08);
           box-sizing: border-box;
           font-family: 'Inter', sans-serif;
         }
         @media (max-width: 768px) {
-          .tb-nav { padding: 0 20px; height: 68px; }
+          .tb-nav { padding: 0 20px; height: 72px; min-height: 72px; }
         }
         @media (max-width: 480px) {
-          .tb-nav { padding: 0 16px; height: 64px; }
+          .tb-nav { padding: 0 16px; height: 68px; min-height: 68px; }
         }
 
         .tb-center-links { display: flex; }
@@ -270,12 +272,12 @@ const st = {
   },
   logoTake: {
     fontFamily: "'Playfair Display', serif",
-    fontWeight: 700, fontSize: 22,
+    fontWeight: 700, fontSize: 26,
     color: '#1c3a27', lineHeight: 1,
   },
   logoBack: {
     fontFamily: "'Playfair Display', serif",
-    fontWeight: 700, fontSize: 22,
+    fontWeight: 700, fontSize: 26,
     color: '#4caf7d', lineHeight: 1,
   },
 
