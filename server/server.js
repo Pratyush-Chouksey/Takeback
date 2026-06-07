@@ -22,9 +22,10 @@ app.use(cors({
 app.use(express.json());
 
 // Mount routes
-app.use('/api/auth', authRoutes);
-app.use('/api/cups', cupRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/auth',   authRoutes);
+app.use('/api/cups',   cupRoutes);
+app.use('/api/admin',  adminRoutes);
+app.use('/api/wallet', require('./routes/wallet'));
 
 // Connect to MongoDB and start server
 mongoose

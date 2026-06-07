@@ -367,8 +367,12 @@ export default function BorrowPage() {
                 <p style={{ margin: '0 0 10px', fontSize: 13, color: '#dc2626', fontWeight: 500 }}>
                   Insufficient balance. You need ₹150 to borrow.
                 </p>
-                <button className="bp-btn-outline" disabled>
-                  Recharge Wallet
+                <button
+                  className="bp-btn-primary"
+                  onClick={() => navigate('/wallet')}
+                  style={{ background: '#1c3a27', width: '100%' }}
+                >
+                  Recharge Wallet →
                 </button>
               </div>
             ) : (

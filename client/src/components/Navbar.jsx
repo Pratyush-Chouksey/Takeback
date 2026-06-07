@@ -25,7 +25,8 @@ export default function Navbar() {
   const isAppPage =
     location.pathname === '/borrow'    ||
     location.pathname === '/return'    ||
-    location.pathname === '/enter-cup';
+    location.pathname === '/enter-cup' ||
+    location.pathname === '/wallet';
 
   /* Close menu on route change */
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
@@ -142,7 +143,13 @@ export default function Navbar() {
                 <img src={user.picture} alt="" style={st.avatar} referrerPolicy="no-referrer" />
               )}
               <span style={st.userName}>{String(user.name || '').slice(0, 14)}</span>
-              <span style={st.walletBadge}>Rs. {user.wallet}</span>
+              <button
+                onClick={() => navigate('/wallet')}
+                title="Tap to recharge"
+                style={st.walletPill}
+              >
+                ₹{user.wallet ?? 0}
+              </button>
               <button className="tb-logout-btn" onClick={logout}>Logout</button>
             </>
           ) : (
@@ -319,5 +326,13 @@ const st = {
     background: '#c8e6d0', color: '#1c3a27',
     padding: '4px 14px', borderRadius: 100,
     fontWeight: 600, fontSize: 13,
+  },
+  walletPill: {
+    background: '#c8e6d0', color: '#1c3a27',
+    padding: '5px 12px', borderRadius: 100,
+    fontWeight: 600, fontSize: 13,
+    border: 'none', cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+    transition: 'background 0.15s',
   },
 };

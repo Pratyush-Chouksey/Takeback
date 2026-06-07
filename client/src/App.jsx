@@ -5,6 +5,7 @@ import ReturnPage from './pages/ReturnPage';
 import AdminDashboard from './pages/AdminDashboard';
 import LandingPage from './pages/LandingPage';
 import EnterCupPage from './pages/EnterCupPage';
+import WalletPage from './pages/WalletPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
           <Routes>
             <Route path="/"          element={<LandingPage />} />
             <Route path="/enter-cup" element={<EnterCupPage />} />
+            <Route path="/wallet"    element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
             <Route path="/borrow"    element={<ProtectedRoute><BorrowPage /></ProtectedRoute>} />
             <Route path="/return"    element={<ProtectedRoute><ReturnPage /></ProtectedRoute>} />
             <Route path="*"          element={<Navigate to="/" replace />} />
